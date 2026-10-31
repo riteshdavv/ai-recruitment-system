@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="public/logo.png" alt="RecruitAI Logo" width="360" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="public/logo-light.png">
+    <img src="public/logo-light.png" alt="RecruitAI Logo" width="380">
+  </picture>
 </p>
 
 <p align="center">
@@ -26,7 +30,6 @@
   - [For Recruiters](#for-recruiters)
   - [For Candidates](#for-candidates)
   - [For Platform Admins](#for-platform-admins)
-- [Product Tour & Screenshots](#-product-tour--screenshots)
 - [Tech Stack](#-tech-stack)
 - [Repository Structure](#-repository-structure)
 - [Getting Started](#-getting-started)
@@ -89,20 +92,6 @@ flowchart LR
 - **User Governance**: Audit user directories, track credit usage, and flag/ban malicious accounts.
 - **Aggregate Analytics**: Monitor active role volumes, interview completion rates, and average assessment scores across the platform.
 - **CSV Data Export**: One-click tabular export of candidates, scores, and interview performance metrics.
-
----
-
-## 📸 Product Tour & Screenshots
-
-| Landing Experience | Recruiter Dashboard |
-| :---: | :---: |
-| ![Homepage Preview](public/ai1.png) | ![Recruiter Dashboard Preview](public/ai2.png) |
-| *Modern hero featuring interactive call preview and product value proposition.* | *Real-time metrics, active roles, credits indicator, and recent pipeline cards.* |
-
-| Candidate Workspace | Interview Chamber |
-| :---: | :---: |
-| ![Candidate Workspace](public/ai3.png) | ![Voice Interview Session](public/interview.jpeg) |
-| *Applicant view with past performance ratings, CV status, and scheduled links.* | *Voice AI agent session with live transcript generation and real-time audio waves.* |
 
 ---
 

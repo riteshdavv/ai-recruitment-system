@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 106" width="380" height="106">
+  <defs>
+    <linearGradient id="badgeGradLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#143426"/>
+      <stop offset="50%" stop-color="#1e4d39"/>
+      <stop offset="100%" stop-color="#28684d"/>
+    </linearGradient>
+    <linearGradient id="centerWaveLight" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#52b788"/>
+      <stop offset="100%" stop-color="#e8f8ed"/>
+    </linearGradient>
+    <linearGradient id="accentTextLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e5c43"/>
+      <stop offset="100%" stop-color="#2e855f"/>
+    </linearGradient>
+    <filter id="softShadowLight" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#122c20" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- ICON BADGE -->
+  <g transform="translate(8, 9)" filter="url(#softShadowLight)">
+    <rect x="0" y="0" width="88" height="88" rx="22" fill="url(#badgeGradLight)"/>
+    <rect x="1" y="1" width="86" height="86" rx="21" fill="none" stroke="#68d391" stroke-width="1.2" stroke-opacity="0.32"/>
+
+    <rect x="18" y="36" width="6" height="16" rx="3" fill="#74c69d" opacity="0.75"/>
+    <rect x="29" y="27" width="6" height="34" rx="3" fill="#95d5b2" opacity="0.9"/>
+    <rect x="41" y="19" width="6" height="50" rx="3" fill="url(#centerWaveLight)"/>
+    <rect x="53" y="27" width="6" height="34" rx="3" fill="#95d5b2" opacity="0.9"/>
+    <rect x="64" y="36" width="6" height="16" rx="3" fill="#74c69d" opacity="0.75"/>
+
+    <circle cx="44" cy="19" r="4.5" fill="#ffffff"/>
+    <circle cx="44" cy="19" r="2.2" fill="#20553e"/>
+
+    <path d="M 21 44 Q 44 14 67 44" fill="none" stroke="#b7e4c7" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="2 3" opacity="0.6"/>
+  </g>
+
+  <!-- WORDMARK -->
+  <g transform="translate(114, 0)">
+    <text x="0" y="59" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="46" font-weight="800" fill="#0f172a" letter-spacing="-0.035em">
+      Recruit<tspan fill="url(#accentTextLight)">AI</tspan>
+    </text>
+
+    <text x="2" y="83" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" font-size="11" font-weight="600" fill="#475569" letter-spacing="0.22em">
+      AI RECRUITMENT AGENT
+    </text>
+  </g>
+</svg>
