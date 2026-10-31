@@ -1,15 +1,8 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="public/logo-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="public/logo-light.png">
-    <img src="public/logo-light.png" alt="RecruitAI Logo" width="380">
-  </picture>
-</p>
-
-<p align="center">
-  <strong>Next-Gen Voice-Enabled AI Recruitment Platform</strong><br />
-  Automate candidate voice screenings, synthesize role-specific question sets with AI, and generate real-time multi-dimensional assessment scorecards.
-</p>
+<div align="center">
+  <h1>🎙️ RecruitAI</h1>
+  <p><strong>Next-Gen Voice-Enabled AI Recruitment Platform</strong></p>
+  <p>Automate candidate voice screenings, synthesize role-specific question sets with AI, and generate real-time multi-dimensional assessment scorecards.</p>
+</div>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-15.2-black?style=for-the-badge&logo=next.js" alt="Next.js" />
