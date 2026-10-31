@@ -2,57 +2,126 @@
 import { useUser } from "@/app/provider";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/services/supabaseClient";
-import { Video } from "lucide-react";
-import react, { useEffect, useState } from "react";
+import { Video, Plus } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import InterviewCard from "../dashboard/_components/interviewcard";
 import { useRouter } from "next/navigation";
 
 function AllInterview() {
   const router = useRouter();
-
-  const [InterviewList, setInterviewList] = useState([]);
+  const [interviewList, setInterviewList] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useUser();
 
   useEffect(() => {
-    user && GetInterviewList();
+    if (user?.email) {
+      getInterviewList();
+    } else if (user === null) {
+      setLoading(false);
+    }
   }, [user]);
 
-  const GetInterviewList = async () => {
-    let { data: Interviews, error } = await supabase
-    .from("Interviews")
-    .select("*, interview_results(*)") // <-- JOIN the related table
-    .eq("userEmail", user?.email)
-    .order('id', { ascending: false })
-  
-    console.log(Interviews);
-    setInterviewList(Interviews);
+  const getInterviewList = async () => {
+    setLoading(true);
+    try {
+      const { data: interviews, error } = await supabase
+        .from("Interviews")
+        .select("*")
+        .eq("userEmail", user?.email)
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+
+      if (!interviews || interviews.length === 0) {
+        setInterviewList([]);
+        return;
+      }
+
+      const interviewIds = interviews.map((i) => i.interview_id).filter(Boolean);
+      let resultsByInterview = {};
+
+      if (interviewIds.length > 0) {
+        const { data: results, error: resultsError } = await supabase
+          .from("interview_results")
+          .select("*")
+          .in("interview_id", interviewIds);
+
+        if (!resultsError && results) {
+          resultsByInterview = results.reduce((acc, curr) => {
+            if (!acc[curr.interview_id]) acc[curr.interview_id] = [];
+            acc[curr.interview_id].push(curr);
+            return acc;
+          }, {});
+        }
+      }
+
+      const combined = interviews.map((inv) => ({
+        ...inv,
+        interview_results: resultsByInterview[inv.interview_id] || [],
+      }));
+
+      setInterviewList(combined);
+    } catch (err) {
+      console.error("Error fetching all interviews:", err?.message || err);
+      setInterviewList([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="my-5">
-      <h2 className="font-bold text-2xl mb-4">Previously Created Interviews</h2>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-ink">All Interviews</h1>
+          <p className="text-ink-muted text-sm mt-1">Directory of every interview link and role created</p>
+        </div>
+        <Button
+          onClick={() => router.push("/recruiter/dashboard/create-interview")}
+          className="bg-sage-700 hover:bg-sage-800 text-white rounded-md hidden md:flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" strokeWidth={2} />
+          Create Interview
+        </Button>
+      </div>
 
-      {InterviewList?.length === 0 ? (
-        <div className="p-5 flex flex-col items-center gap-3 text-center text-gray-500 bg-white border rounded-xl shadow-sm">
-          <Video className="text-primary h-10 w-10" />
-          <h2 className="text-base">You don't have any interview created</h2>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-44 bg-surface rounded-lg border border-line animate-pulse p-5" />
+          ))}
+        </div>
+      ) : interviewList?.length === 0 ? (
+        <div className="bg-surface border border-dashed border-line rounded-lg p-12 flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-sage-100 flex items-center justify-center text-sage-700 mb-3">
+            <Video className="w-6 h-6" strokeWidth={1.75} />
+          </div>
+          <h3 className="font-semibold text-ink text-base mb-1">No interviews found</h3>
+          <p className="text-ink-muted text-sm mb-4 max-w-sm">
+            Create your first interview link and begin interviewing candidates.
+          </p>
           <Button
-            className="cursor-pointer"
-            onClick={() => router.push("/dashboard/create-interview")}
+            onClick={() => router.push("/recruiter/dashboard/create-interview")}
+            className="bg-sage-700 hover:bg-sage-800 text-white rounded-md"
           >
-            + Create New Interview
+            <Plus className="w-4 h-4 mr-1.5" strokeWidth={2} />
+            Create Interview
           </Button>
         </div>
       ) : (
-        InterviewList && (
-          <div className="grid grid-cols-2 xl:grid-cols-3 gap-5">
-            {InterviewList.map((interview, index) => (
-              <InterviewCard interview={interview} key={index} />
-            ))}
-          </div>
-        )
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {interviewList.map((interview, index) => (
+            <InterviewCard
+              interview={interview}
+              key={index}
+              onDelete={getInterviewList}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
 }
+
 export default AllInterview;

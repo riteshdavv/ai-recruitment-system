@@ -1,28 +1,73 @@
-import { GalleryVerticalEnd } from "lucide-react";
+"use client";
 import Image from "next/image";
-
 import { RegisterForm } from "../../components/register-form";
+import Link from "next/link";
+import Logo from "@/components/Logo";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
-      <div className="flex flex-col gap-4 p-6 md:p-10">
-        <div className="flex justify-center gap-2 md:justify-start">
-        <Image src={"/logo.png"} alt="logo" width={200} height={100} 
-            className="w-[140px]" />
-        </div>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-xs">
+    <div className="grid min-h-screen lg:grid-cols-2 bg-sage-50">
+      {/* Left — White Form Card Panel */}
+      <div className="flex flex-col justify-between p-6 sm:p-12 md:p-16 bg-surface border-r border-line">
+        <div>
+          <Link href="/" className="inline-block mb-10">
+            <Logo size="lg" />
+          </Link>
+
+          <div className="max-w-sm">
             <RegisterForm />
           </div>
         </div>
+
+        <div className="pt-8 text-xs text-ink-muted">
+          By signing up, you agree to our Terms of Service & Privacy Policy.
+        </div>
       </div>
-      <div className="relative hidden bg-muted lg:block">
-        <img
-          src="/ai.jpg"
-          alt="Image"
-          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-        />
+
+      {/* Right — Sage-100 Panel with abstract waveform artwork & value statement */}
+      <div className="hidden lg:flex flex-col justify-between p-16 bg-sage-100 relative overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
+          <svg
+            className="w-full h-full text-sage-400"
+            viewBox="0 0 600 400"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M0 200 C 150 120, 250 280, 400 200 C 500 150, 550 240, 600 200"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeDasharray="6 6"
+            />
+            <path
+              d="M0 230 C 120 160, 280 320, 420 220 C 510 160, 560 260, 600 230"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <circle cx="320" cy="200" r="140" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+            <circle cx="320" cy="200" r="90" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" />
+          </svg>
+        </div>
+
+        <div className="relative z-10">
+          <span className="text-xs uppercase tracking-widest text-sage-800 font-semibold">
+            Join Platform
+          </span>
+        </div>
+
+        <div className="relative z-10 max-w-md space-y-3">
+          <h2 className="text-3xl font-semibold text-ink leading-tight">
+            Deploy voice AI interviewers or showcase your skills in minutes.
+          </h2>
+          <p className="text-sm text-ink-muted leading-relaxed">
+            Join hundreds of hiring teams transforming their screening process with unbiased, structured evaluations.
+          </p>
+        </div>
+
+        <div className="relative z-10 flex items-center gap-2 text-xs text-sage-800 font-medium">
+          <span className="w-2 h-2 rounded-full bg-sage-700" />
+          Enterprise Voice Pipeline
+        </div>
       </div>
     </div>
   );

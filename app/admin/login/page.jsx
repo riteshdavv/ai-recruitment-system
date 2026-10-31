@@ -8,6 +8,7 @@ import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import Logo from '@/components/Logo';
 
 function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -116,15 +117,7 @@ function AdminLogin() {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="relative w-16 h-16">
-              <Image 
-                src="/logo.png" 
-                alt="Logo" 
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
+            <Logo iconOnly={true} className="w-16 h-16" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Access</h1>
           <p className="text-gray-600">Sign in to access the admin panel</p>

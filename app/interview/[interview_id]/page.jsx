@@ -1,16 +1,15 @@
 'use client';
-import React, { useEffect, useState, useContext, use } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import Image from 'next/image';
-import { Clock, Mic, Video, CheckCircle, ChevronRight } from 'lucide-react';
+import Logo from '@/components/Logo';
+import { Clock, Mic, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Volume2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/services/supabaseClient';
 import { toast } from 'sonner';
 import { InterviewDataContext } from '@/context/InterviewDataContext';
-import { motion } from 'framer-motion';
 import { useUser } from '@/app/provider';
-import axios from 'axios';
 
 function Interview() {
   const params = useParams();
@@ -18,68 +17,65 @@ function Interview() {
   const [interviewData, setInterviewData] = useState(null);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  // const [interviewDetails, setInterviewDetails] = useState('');
-  // const [interviewQuestions, setInterviewQuestions] = useState('');
-  // const [interviewDuration, setInterviewDuration] = useState('');
-  // const [interviewType, setInterviewType] = useState('');
-  // const [interviewStatus, setInterviewStatus] = useState('pending');
-  // const [interviewDate, setInterviewDate] = useState('');
   const [loading, setLoading] = useState(false);
+  const [micTested, setMicTested] = useState(false);
+  const [micTesting, setMicTesting] = useState(false);
   const { interviewInfo, setInterviewInfo } = useContext(InterviewDataContext);
   const router = useRouter();
   const [accessDenied, setAccessDenied] = useState(false);
   const { user } = useUser();
 
-  let provider = null;
-  if (typeof window !== 'undefined') {
-    try {
-      provider = JSON.parse(localStorage.getItem('supabase.auth.token'))?.currentSession?.user?.app_metadata?.provider;
-    } catch {}
-  }
-  const isGoogleUser = provider === 'google';
-
   useEffect(() => {
-    if (interview_id) GetInterviewDetails();
+    if (interview_id) getInterviewDetails();
   }, [interview_id]);
 
   useEffect(() => {
     const checkAccess = async () => {
-      // 1. Get current session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         router.push("/login");
         return;
       }
-      // No email comparison, just require a session
       setAccessDenied(false);
     };
     checkAccess();
-  }, [interviewData, interview_id]);
+  }, [interviewData, interview_id, router]);
 
   useEffect(() => {
     if (user && !userEmail) setUserEmail(user.email || '');
     if (user && !userName) setUserName(user.name || '');
   }, [user]);
 
-  const GetInterviewDetails = async () => {
+  const getInterviewDetails = async () => {
     setLoading(true);
     try {
-      const { data: Interviews, error } = await supabase
+      const { data: interviews, error } = await supabase
         .from('Interviews')
         .select('userEmail, jobPosition, jobDescription, duration, type, questionList')
         .eq('interview_id', interview_id);
 
       if (error) throw error;
-      if (!Interviews?.length) throw new Error('No interview found');
+      if (!interviews?.length) throw new Error('Interview role not found');
       
-      console.log('Interviews:', Interviews);
-      // Set the interview data to state
-
-      setInterviewData(Interviews[0]);
+      setInterviewData(interviews[0]);
     } catch (error) {
-      toast.error(error.message || 'Failed to fetch details');
+      toast.error(error.message || 'Failed to fetch interview details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const testMicrophone = async () => {
+    setMicTesting(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicTested(true);
+      toast.success("Microphone access verified");
+      stream.getTracks().forEach(track => track.stop());
+    } catch (err) {
+      toast.error("Microphone permission denied. Please allow microphone in browser.");
+    } finally {
+      setMicTesting(false);
     }
   };
 
@@ -88,17 +84,15 @@ function Interview() {
       toast.warning("Full name is required");
       return false;
     }
-  
     if (userName.trim().split(" ").length < 2) {
-      toast.warning("Please provide your full name (e.g., First Last)");
+      toast.warning("Please provide both first and last name");
       return false;
     }
-  
     return true;
   };
-  
+
   const onJoinInterview = async () => {
-    if (!validateJoin()) return; // Deny entry if validation fails
+    if (!validateJoin()) return;
 
     try {
       const newInterviewInfo = {
@@ -109,224 +103,158 @@ function Interview() {
         duration: interviewData?.duration,
         userEmail: userEmail,
         type: interviewData?.type,
-        questionList: interviewData?.questionList, // Use the existing questions
+        questionList: interviewData?.questionList,
         interview_id: interview_id,
       };
       setInterviewInfo(newInterviewInfo);
-     
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('interviewInfo', JSON.stringify(newInterviewInfo));
       }
-      toast.success("Creating your interview session...");
-      await new Promise((resolve) => setTimeout(resolve, 1500)); // Smooth delay
+      toast.success("Connecting session audio...");
+      await new Promise((resolve) => setTimeout(resolve, 800));
       router.push(`/interview/${interview_id}/start`);
     } catch (error) {
-      toast.error("Connection failed");
+      toast.error("Failed to connect session");
     }
   };
 
   if (accessDenied) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-          <p className="text-gray-600">You do not have permission to access this interview.</p>
+      <div className="min-h-screen bg-sage-50 flex items-center justify-center p-6">
+        <div className="bg-surface rounded-lg border border-line p-8 max-w-md text-center shadow-card space-y-3">
+          <div className="w-12 h-12 rounded-full bg-danger-soft text-danger mx-auto flex items-center justify-center">
+            <AlertCircle className="w-6 h-6" strokeWidth={2} />
+          </div>
+          <h2 className="text-xl font-semibold text-ink">Access Denied</h2>
+          <p className="text-sm text-ink-muted">Please sign in with authorized credentials to access this interview session.</p>
+          <Button onClick={() => router.push('/login')} className="bg-sage-700 hover:bg-sage-800 text-white w-full">
+            Sign In
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50/30 py-12 px-4 sm:px-6 lg:px-8">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="max-w-4xl mx-auto"
-      >
-        {/* Animated Header */}
-        <motion.div 
-          whileHover={{ scale: 1.02 }}
-          className="flex flex-col items-center mb-12"
-        >
-          <div className="relative w-28 h-28 mb-4">
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 border-2 border-dashed border-indigo-200 rounded-full"
-            />
-            <Image
-              src="/Logo.png" 
-              alt="Logo" 
-              fill
-              className="object-contain p-4"
-              priority
-            />
+    <div className="min-h-screen bg-sage-50 py-12 px-4 sm:px-6">
+      {/* 720px focused column as per Section 6.1 */}
+      <div className="max-w-[720px] mx-auto space-y-6">
+        {/* Brand header */}
+        <div className="flex items-center justify-between border-b border-line pb-4">
+          <Logo size="md" />
+          <div className="flex items-center gap-1.5 text-xs text-ink-muted font-mono">
+            <ShieldCheck className="w-4 h-4 text-sage-600" />
+            <span>Encrypted Session</span>
           </div>
-          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-            AI Interview Portal
-          </h1>
-          <p className="mt-2 text-gray-500">Next-generation hiring experience</p>
-        </motion.div>
+        </div>
 
-        {/* Glassmorphism Card */}
-        <motion.div 
-          whileHover={{ y: -5 }}
-          className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden border border-white/20"
-        >
-          {/* Interview Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-white">
-                  {interviewData?.jobPosition || 'AI Interview'}
-                </h2>
-                <div className="flex items-center gap-2 mt-2 text-indigo-100">
-                  <Clock className="h-4 w-4" />
-                  <span>{interviewData?.duration || '30 min'}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-white/10 px-4 py-2 rounded-full">
-                <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse" />
-                <span className="text-sm text-white">Live Session Ready</span>
-              </div>
+        {/* Role Briefing Card */}
+        <div className="bg-surface rounded-lg border border-line p-6 shadow-card space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
+            <div>
+              <span className="text-xs uppercase tracking-wider font-semibold text-sage-700">Interview Session</span>
+              <h1 className="text-2xl font-semibold text-ink mt-0.5">
+                {interviewData?.jobPosition || "Voice Assessment"}
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto font-mono text-xs text-ink-muted bg-sage-100 border border-sage-200 px-3 py-1 rounded-full">
+              <Clock className="w-3.5 h-3.5 text-sage-700" />
+              <span>{interviewData?.duration || "15 Min"}</span>
             </div>
           </div>
 
-          {/* Interview Content */}
-          <div className="p-8">
-            {/* Visual Timeline */}
-            <div className="flex items-center justify-center mb-10">
-              <div className="relative w-full max-w-md">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t-2 border-dashed border-gray-200" />
-                </div>
-                <div className="relative flex justify-between">
-                  {[1, 2, 3].map((step) => (
-                    <div key={step} className="flex flex-col items-center">
-                      <div className="h-8 w-8 rounded-full bg-indigo-100 border-2 border-indigo-500 flex items-center justify-center">
-                        <span className="text-sm font-medium text-indigo-700">{step}</span>
-                      </div>
-                      <span className="mt-2 text-xs text-gray-500">
-                        {['Setup', 'Interview', 'Results'][step-1]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          {interviewData?.jobDescription && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">Role Overview</h3>
+              <p className="text-xs sm:text-sm text-ink leading-relaxed line-clamp-3 bg-surface-alt p-3.5 rounded border border-line">
+                {interviewData.jobDescription}
+              </p>
             </div>
+          )}
 
-            {/* Candidate Form */}
-            <div className="space-y-6">
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Full Name
-                </label>
-                <Input
-                  placeholder="Eg: Sujeeth Kumar"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  className="py-3 px-4 border-gray-300 focus:ring-2 focus:ring-indigo-500"
-                />
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Professional Email
-                </label>
-                <Input
-                  type="email"
-                  placeholder="Eg: Sujeethkumar@example.com"
-                  value={userEmail}
-                  onChange={(e) => setUserEmail(e.target.value)}
-                  className="py-3 px-4 border-gray-300 focus:ring-2 focus:ring-indigo-500"
-                />
-              </motion.div>
-
-              {/* Preparation Checklist */}
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="bg-indigo-50/50 rounded-xl p-5 border border-indigo-100"
-              >
-                <h4 className="font-medium text-indigo-800 mb-3 flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5" />
-                  Preparation Checklist
-                </h4>
-                <ul className="space-y-3">
-                  {[
-                    'Provide a proper name & valid email address',
-                    'Give access to your microphone',
-                    'Ensure a stable internet connection',
-                    'Enable camera permissions',
-                    'Use Chrome or Edge browser',
-                    'Find a quiet environment',
-                    'Have your resume handy'
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <div className="h-4 w-4 rounded-full bg-indigo-100 border border-indigo-300 flex items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                        </div>
-                      </div>
-                      <span className="text-sm text-gray-700">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-
-              {/* Join Button */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="pt-4"
-              >
-                <Button
-                  onClick={onJoinInterview}
-                  // disabled={loading || !userName || !userEmail}
-                  className={`w-full py-4 rounded-xl text-lg font-medium transition-all ${!loading && 'hover:shadow-lg'}`}
+          {/* Pre-flight verification checklist as per Section 6.1 */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Pre-flight System Check</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3.5 rounded-md border border-line bg-surface-alt flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Mic className="w-4 h-4 text-sage-700" />
+                  <span className="text-ink font-medium">Microphone Sensor</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={testMicrophone}
+                  disabled={micTesting}
+                  className={`text-xs px-2.5 py-1 rounded font-medium transition-colors cursor-pointer ${
+                    micTested
+                      ? 'bg-success-soft text-success border border-success/20'
+                      : 'bg-surface border border-line hover:bg-sage-100 text-ink'
+                  }`}
                 >
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Preparing...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-3">
-                      <Video className="h-5 w-5" />
-                      Start Interview Session
-                      <ChevronRight className="h-4 w-4" />
-                    </span>
-                  )}
-                </Button>
-              </motion.div>
+                  {micTested ? 'Verified' : micTesting ? 'Testing...' : 'Test Mic'}
+                </button>
+              </div>
+
+              <div className="p-3.5 rounded-md border border-line bg-surface-alt flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Volume2 className="w-4 h-4 text-sage-700" />
+                  <span className="text-ink font-medium">Audio Output</span>
+                </div>
+                <span className="text-xs font-mono text-sage-800 bg-sage-100 border border-sage-200 px-2 py-0.5 rounded">
+                  System Ready
+                </span>
+              </div>
             </div>
           </div>
-        </motion.div>
 
-        {/* Footer Note */}
-        <motion.p 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="text-center text-sm text-gray-500 mt-12"
-        >
-          Powered by AI interview technology • Secure and confidential
-        </motion.p>
-      </motion.div>
+          {/* Candidate Form Fields */}
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-medium text-ink mb-1.5">
+                Full Name (First and Last)
+              </label>
+              <Input
+                placeholder="e.g. Jordan Smith"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-ink mb-1.5">
+                Email Address
+              </label>
+              <Input
+                type="email"
+                placeholder="jordan@example.com"
+                value={userEmail}
+                onChange={(e) => setUserEmail(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Consent Notice as per Section 6.1 */}
+          <div className="p-3 rounded-md bg-sage-50 border border-line text-xs text-ink-muted leading-relaxed flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-sage-600 shrink-0 mt-0.5" />
+            <span>
+              By continuing, you consent to an automated conversational voice interview and dialogue transcription evaluated by AI models for hiring criteria.
+            </span>
+          </div>
+
+          {/* Single primary CTA as per Section 6.1 */}
+          <div className="pt-2">
+            <Button
+              onClick={onJoinInterview}
+              disabled={loading || !userName || !userEmail}
+              className="w-full h-12 bg-sage-700 hover:bg-sage-800 text-white rounded-md text-base font-medium shadow-card"
+            >
+              Start Interview Session
+              <ArrowRight className="w-4 h-4 ml-2" strokeWidth={2} />
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

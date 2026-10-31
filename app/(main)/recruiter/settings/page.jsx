@@ -2,129 +2,141 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { User, Shield, LogOut } from "lucide-react";
 
 export default function Settings() {
   const router = useRouter();
   const [user, setUser] = useState({
-    name: "John Doe",
-    email: "johndoe@example.com",
+    name: "Recruiter Account",
+    email: "recruiter@example.com",
   });
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogout = () => {
-    // Simulate logout functionality
-    localStorage.removeItem("authToken"); // Clear auth token
-    router.push("/login"); // Redirect to login page
+    localStorage.removeItem("authToken");
+    router.push("/login");
   };
 
   const handleUpdateProfile = (e) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate profile update
     setTimeout(() => {
-      alert("Profile updated successfully!");
+      toast.success("Profile updated successfully");
       setLoading(false);
-    }, 1000);
+    }, 600);
   };
 
   const handleChangePassword = (e) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate password change
     setTimeout(() => {
-      alert("Password changed successfully!");
+      toast.success("Password changed successfully");
       setPassword("");
       setLoading(false);
-    }, 1000);
+    }, 600);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-md">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Settings</h1>
+        <p className="text-sm text-ink-muted mt-0.5">Manage your workspace preferences</p>
+      </div>
 
+      <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Section */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Profile</h2>
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={user.name}
-                onChange={(e) => setUser({ ...user, name: e.target.value })}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={user.email}
-                onChange={(e) => setUser({ ...user, email: e.target.value })}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2 px-4 bg-indigo-600 text-white font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              disabled={loading}
-            >
-              {loading ? "Updating..." : "Update Profile"}
-            </button>
-          </form>
-        </div>
+        <Card className="bg-surface border-line shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-ink flex items-center gap-2">
+              <User className="w-4 h-4 text-sage-700" />
+              Profile Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div>
+                <Label htmlFor="name" className="text-xs font-medium text-ink">
+                  Full Name
+                </Label>
+                <Input
+                  type="text"
+                  id="name"
+                  value={user.name}
+                  onChange={(e) => setUser({ ...user, name: e.target.value })}
+                  className="mt-1"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="email" className="text-xs font-medium text-ink">
+                  Email Address
+                </Label>
+                <Input
+                  type="email"
+                  id="email"
+                  value={user.email}
+                  onChange={(e) => setUser({ ...user, email: e.target.value })}
+                  className="mt-1"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full h-10 text-xs font-medium" disabled={loading}>
+                {loading ? "Updating..." : "Update Details"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Password Section */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Change Password</h2>
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                New Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2 px-4 bg-indigo-600 text-white font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              disabled={loading}
-            >
-              {loading ? "Changing..." : "Change Password"}
-            </button>
-          </form>
-        </div>
+        <Card className="bg-surface border-line shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-ink flex items-center gap-2">
+              <Shield className="w-4 h-4 text-sage-700" />
+              Security
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <Label htmlFor="password" className="text-xs font-medium text-ink">
+                  New Password
+                </Label>
+                <Input
+                  type="password"
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="mt-1"
+                  required
+                />
+              </div>
+              <Button variant="outline" type="submit" className="w-full h-10 text-xs font-medium" disabled={loading || !password}>
+                {loading ? "Updating..." : "Change Password"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Logout Section */}
-        <div className="text-right">
-          <button
-            onClick={handleLogout}
-            className="py-2 px-4 bg-red-600 text-white font-medium rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-          >
-            Logout
-          </button>
-        </div>
+      {/* Logout Action */}
+      <div className="flex justify-end pt-4">
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          className="text-danger hover:bg-danger-soft hover:text-danger hover:border-danger/30 text-xs h-9"
+        >
+          <LogOut className="w-3.5 h-3.5 mr-1.5" />
+          Log out
+        </Button>
       </div>
     </div>
   );

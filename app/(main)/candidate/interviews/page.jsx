@@ -2,10 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@/app/provider';
 import { supabase } from '@/services/supabaseClient';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Video, Calendar, Clock, Star, CheckCircle, XCircle, Clock as ClockIcon } from 'lucide-react';
+import { Video, Calendar, Clock, Star, CheckCircle, AlertTriangle } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'sonner';
 
@@ -15,39 +12,56 @@ export default function CandidateInterviews() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user?.email) {
       fetchCandidateInterviews();
+    } else if (user === null) {
+      setLoading(false);
     }
   }, [user]);
 
   const fetchCandidateInterviews = async () => {
     try {
       setLoading(true);
-      
-      // Fetch all interview results for this candidate
       const { data: results, error } = await supabase
         .from('interview_results')
-        .select(`
-          *,
-          Interviews (
-            jobPosition,
-            jobDescription,
-            type,
-            duration,
-            created_at,
-            userEmail
-          )
-        `)
+        .select('*')
         .eq('email', user.email)
         .order('completed_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching interviews:', error);
+        console.error('Error fetching interviews:', error?.message || error);
         toast.error('Failed to load interviews');
         return;
       }
 
-      setInterviews(results || []);
+      if (!results || results.length === 0) {
+        setInterviews([]);
+        return;
+      }
+
+      const interviewIds = [...new Set(results.map((r) => r.interview_id).filter(Boolean))];
+      let interviewsMap = {};
+
+      if (interviewIds.length > 0) {
+        const { data: interviewsData } = await supabase
+          .from('Interviews')
+          .select('interview_id, jobPosition, jobDescription, type, duration, created_at, userEmail')
+          .in('interview_id', interviewIds);
+
+        if (interviewsData) {
+          interviewsMap = interviewsData.reduce((acc, curr) => {
+            acc[curr.interview_id] = curr;
+            return acc;
+          }, {});
+        }
+      }
+
+      const combined = results.map((r) => ({
+        ...r,
+        Interviews: interviewsMap[r.interview_id] || null,
+      }));
+
+      setInterviews(combined);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load interviews');
@@ -57,112 +71,131 @@ export default function CandidateInterviews() {
   };
 
   const calculateOverallScore = (feedback) => {
-    if (!feedback?.rating) return 'N/A';
-    
+    if (!feedback?.rating) return null;
     const ratings = Object.values(feedback.rating).filter(val => typeof val === 'number');
-    if (ratings.length === 0) return 'N/A';
-    
-    const average = Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
-    return `${average}/10`;
+    if (ratings.length === 0) return null;
+    return Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
   };
-
-  const getScoreColor = (score) => {
-    if (score === 'N/A') return 'bg-gray-100 text-gray-600';
-    const numScore = parseInt(score);
-    if (numScore >= 8) return 'bg-green-100 text-green-700';
-    if (numScore >= 6) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-red-100 text-red-700';
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'in_progress':
-        return <ClockIcon className="w-4 h-4 text-yellow-500" />;
-      default:
-        return <XCircle className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Loading your interviews...</span>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Interviews</h1>
-        <p className="text-gray-600 mt-1">Track all your interview sessions and results</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-ink">My Interviews</h1>
+        <p className="text-ink-muted text-sm mt-1">History of all voice interview sessions, assessments, and feedback</p>
       </div>
 
-      {interviews.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Video className="w-12 h-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No interviews yet</h3>
-            <p className="text-gray-500 text-center max-w-md">
-              You haven't participated in any interviews yet. When you complete an interview, it will appear here.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6">
-          {interviews.map((result, index) => (
-            <Card key={result.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Video className="w-5 h-5 text-blue-600" />
-                      <CardTitle className="text-lg">
-                        {result.Interviews?.jobPosition || 'Interview'}
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {moment(result.created_at).format('MMM DD, YYYY')}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {result.Interviews?.duration || 'N/A'}
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {result.Interviews?.type || 'Interview'}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(result.status)}
-                    <Badge 
-                      variant={result.status === 'completed' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {result.status === 'completed' ? 'In Progress' : 'Completed'}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-4">
-                  
-                    <div className="text-center py-4">
-                      <p className="text-gray-500 text-sm">You will be emailed from the recruiter.</p>
-                    </div>
-                
-                </div>
-              </CardContent>
-            </Card>
+      {loading ? (
+        <div className="grid gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-32 bg-surface rounded-lg border border-line animate-pulse p-6" />
           ))}
+        </div>
+      ) : interviews.length === 0 ? (
+        <div className="bg-surface border border-dashed border-line rounded-lg p-12 flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-sage-100 flex items-center justify-center text-sage-700 mb-3">
+            <Video className="w-6 h-6" strokeWidth={1.75} />
+          </div>
+          <h3 className="font-semibold text-ink text-base mb-1">No completed interviews yet</h3>
+          <p className="text-ink-muted text-sm max-w-sm">
+            Once you launch and complete an interview session via an invitation link, your results will be listed here.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {interviews.map((result) => {
+            const score = calculateOverallScore(result.conversation_transcript?.feedback);
+            const feedback = result.conversation_transcript?.feedback;
+            const isRecommended = feedback?.Recommendation
+              ? !feedback.Recommendation.toLowerCase().includes('not')
+              : null;
+
+            return (
+              <div
+                key={result.id}
+                className="bg-surface border border-line rounded-lg shadow-card p-5 sm:p-6 transition-all hover:border-sage-300"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-md bg-sage-100 flex items-center justify-center text-sage-700 flex-shrink-0 mt-0.5">
+                      <Video className="w-5 h-5" strokeWidth={1.75} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-ink text-base truncate">
+                        {result.Interviews?.jobPosition || 'Role Interview'}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-2.5 text-xs text-ink-muted mt-1.5">
+                        <span className="flex items-center gap-1 font-mono">
+                          <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} />
+                          {moment(result.completed_at || result.created_at).format('MMM DD, YYYY')}
+                        </span>
+                        <span>•</span>
+                        {result.Interviews?.duration && (
+                          <>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
+                              {result.Interviews.duration}
+                            </span>
+                            <span>•</span>
+                          </>
+                        )}
+                        <span className="bg-sage-100 text-sage-900 px-2 py-0.5 rounded-full border border-sage-200">
+                          Completed
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status / Rating */}
+                  <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">
+                    {score !== null && (
+                      <span className="inline-flex items-center gap-1 text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-sage-100 text-sage-900 border border-sage-200 tabular-nums">
+                        <Star className="w-3.5 h-3.5 text-sage-700" strokeWidth={2} />
+                        Score: {score}/10
+                      </span>
+                    )}
+                    {isRecommended !== null && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                          isRecommended
+                            ? 'bg-success-soft text-success border border-success/20'
+                            : 'bg-warning-soft text-warning border border-warning/20'
+                        }`}
+                      >
+                        {isRecommended ? (
+                          <>
+                            <CheckCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
+                            Recommended
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={1.75} />
+                            Under Review
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* AI Summary note if present */}
+                {feedback?.summery && (
+                  <div className="mt-4 pt-4 border-t border-line text-xs text-ink-muted leading-relaxed">
+                    <p className="line-clamp-2">
+                      <strong className="text-ink font-medium">Evaluation note: </strong>
+                      {typeof feedback.summery === 'string'
+                        ? feedback.summery
+                        : Array.isArray(feedback.summery)
+                        ? feedback.summery.join(' ')
+                        : ''}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
-} 
+}

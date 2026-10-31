@@ -4,89 +4,95 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/services/supabaseClient';
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
+
 function WelcomeContainer() {
-    const { user } = useUser();
-    const [userData, setUserData] = useState({
-        name: user?.name || 'User',
-        picture: null
-    });
+  const { user } = useUser();
+  const [userData, setUserData] = useState({
+    name: user?.name || 'User',
+    picture: null
+  });
 
-    useEffect(() => {
-        if (user?.email) {
-            fetchLatestUserData();
+  useEffect(() => {
+    if (user?.email) {
+      fetchLatestUserData();
+    }
+  }, [user]);
+
+  const fetchLatestUserData = async () => {
+    try {
+      const { data: userRecord, error } = await supabase
+        .from('users')
+        .select('name, picture')
+        .eq('email', user.email)
+        .single();
+
+      if (!error && userRecord) {
+        setUserData({
+          name: userRecord.name || user?.name || user?.email?.split('@')[0] || 'User',
+          picture: userRecord.picture || user?.picture
+        });
+      } else {
+        setUserData({
+          name: user?.name || user?.email?.split('@')[0] || 'User',
+          picture: user?.picture
+        });
+      }
+
+      if (typeof window !== 'undefined') {
+        const googleProfile = localStorage.getItem('googleProfile');
+        if (googleProfile) {
+          const { name, picture } = JSON.parse(googleProfile);
+          setUserData(prev => ({
+            ...prev,
+            name: name || prev.name,
+            picture: picture || prev.picture
+          }));
         }
-    }, [user]);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setUserData({
+        name: user?.name || user?.email?.split('@')[0] || 'User',
+        picture: user?.picture
+      });
+    }
+  };
 
-    const fetchLatestUserData = async () => {
-        try {
-            // Get latest user data from database
-            const { data: userRecord, error } = await supabase
-                .from('users')
-                .select('name, picture')
-                .eq('email', user.email)
-                .single();
+  return (
+    <div className="bg-surface border border-line rounded-lg shadow-card p-5 sm:p-6 flex items-center justify-between">
+      <div>
+        <span className="text-xs font-medium tracking-wide uppercase text-sage-700">
+          {getGreeting()}
+        </span>
+        <h2 className="text-2xl font-semibold tracking-tight text-ink mt-0.5">
+          Welcome back, {userData.name}
+        </h2>
+        <p className="text-sm text-ink-muted mt-1">
+          Prepare, conduct, and track your voice-enabled AI interviews.
+        </p>
+      </div>
 
-            if (!error && userRecord) {
-                setUserData({
-                    name: userRecord.name || user?.name || user?.email?.split('@')[0] || 'User',
-                    picture: userRecord.picture || user?.picture
-                });
-            } else {
-                // Fallback to provider user data
-                setUserData({
-                    name: user?.name || user?.email?.split('@')[0] || 'User',
-                    picture: user?.picture
-                });
-            }
-
-            // Check for Google profile in localStorage
-            if (typeof window !== 'undefined') {
-                const googleProfile = localStorage.getItem('googleProfile');
-                if (googleProfile) {
-                    const { name, picture } = JSON.parse(googleProfile);
-                    setUserData(prev => ({
-                        ...prev,
-                        name: name || prev.name,
-                        picture: picture || prev.picture
-                    }));
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching user data:', error);
-            // Fallback to provider user data
-            setUserData({
-                name: user?.name || user?.email?.split('@')[0] || 'User',
-                picture: user?.picture
-            });
-        }
-    };
-
-    return (
-        <div className="bg-white p-5 rounded-xl border shadow-md flex justify-between items-center">
-            <div>
-                <h2 className="text-lg font-bold">
-                    Welcome Back, <span className="text-blue-600">{userData.name}</span>
-                </h2>
-                <h2 className="text-gray-500">Your Path to Great Jobs Starts with AI Interviews</h2>
-            </div>
-            
-            {userData.picture ? (
-                <Image 
-                    src={userData.picture} 
-                    alt='userAvatar' 
-                    width={50} 
-                    height={50} 
-                    className='rounded-full' 
-                />
-            ) : (
-                <div className="w-[50px] h-[50px] rounded-full bg-blue-100 flex items-center justify-center">
-                    <span className="text-lg font-semibold text-blue-600">
-                        {userData.name.charAt(0).toUpperCase()}
-                    </span>
-                </div>
-            )}
+      {userData.picture ? (
+        <Image
+          src={userData.picture}
+          alt={userData.name}
+          width={48}
+          height={48}
+          className="rounded-full ring-1 ring-line object-cover flex-shrink-0"
+        />
+      ) : (
+        <div className="w-12 h-12 rounded-full bg-sage-200 text-sage-900 flex items-center justify-center font-medium text-base flex-shrink-0">
+          {userData.name.charAt(0).toUpperCase()}
         </div>
-    );
+      )}
+    </div>
+  );
 }
 
 export default WelcomeContainer;

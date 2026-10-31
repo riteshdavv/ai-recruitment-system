@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Shield } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { toast } from 'sonner';
+import Logo from '@/components/Logo';
 
 function AdminLayout({ children }) {
   const { user } = useUser();
@@ -65,13 +66,13 @@ function AdminLayout({ children }) {
 
   if (user === undefined || isChecking) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-blue-100 via-white to-indigo-100">
-        <div className="flex flex-col items-center gap-6 p-10 rounded-2xl shadow-lg bg-white/80 border border-blue-100">
-          <Shield className="w-16 h-16 text-blue-500 animate-bounce" />
-          <h2 className="text-2xl font-bold text-blue-700">Loading Admin Panel...</h2>
-          <p className="text-gray-500">Please wait while we verify your access.</p>
-          <div className="w-32 h-2 bg-blue-100 rounded-full overflow-hidden">
-            <div className="h-2 bg-blue-500 animate-pulse rounded-full w-1/2"></div>
+      <div className="flex h-screen items-center justify-center bg-sage-50">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-xl shadow-card bg-surface border border-line">
+          <Shield className="w-10 h-10 text-sage-700 animate-pulse" />
+          <h2 className="text-lg font-semibold text-ink">Verifying Admin Access...</h2>
+          <p className="text-xs text-ink-muted">Please wait while we verify your permissions.</p>
+          <div className="w-32 h-1.5 bg-sage-200 rounded-full overflow-hidden">
+            <div className="h-full bg-sage-700 animate-pulse rounded-full w-1/2"></div>
           </div>
         </div>
       </div>
@@ -79,27 +80,31 @@ function AdminLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-sage-50 text-ink">
       {/* Simple Admin Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-surface shadow-card border-b border-line">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <Shield className="w-8 h-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+            <div className="flex items-center space-x-4">
+              <Logo size="md" href="/" />
+              <div className="h-5 w-px bg-line" />
+              <div className="flex items-center space-x-2">
+                <Shield className="w-5 h-5 text-sage-700" />
+                <h1 className="text-sm font-semibold text-ink">Admin Console</h1>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Welcome, {user?.name || 'Admin'}
+              <span className="text-xs text-ink-muted">
+                Signed in as <strong className="text-ink">{user?.name || 'Admin'}</strong>
               </span>
               <button
                 onClick={async () => {
                   await supabase.auth.signOut();
                   router.push('/');
                 }}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-xs text-danger hover:underline font-medium"
               >
-                Sign Out
+                Sign out
               </button>
             </div>
           </div>
@@ -107,35 +112,35 @@ function AdminLayout({ children }) {
       </header>
 
       {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b">
+      <nav className="bg-surface border-b border-line">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8 py-3">
+          <div className="flex space-x-6 py-2">
             <a
               href="/admin"
-              className={`text-sm font-medium px-3 py-2 rounded-md ${
+              className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
                 pathname === '/admin' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-sage-100 text-sage-900 font-semibold' 
+                  : 'text-ink-muted hover:text-ink hover:bg-sage-50'
               }`}
             >
               Dashboard
             </a>
             <a
               href="/admin/users"
-              className={`text-sm font-medium px-3 py-2 rounded-md ${
+              className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
                 pathname === '/admin/users' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-sage-100 text-sage-900 font-semibold' 
+                  : 'text-ink-muted hover:text-ink hover:bg-sage-50'
               }`}
             >
               Users
             </a>
             <a
               href="/admin/interviews"
-              className={`text-sm font-medium px-3 py-2 rounded-md ${
+              className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
                 pathname === '/admin/interviews' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-sage-100 text-sage-900 font-semibold' 
+                  : 'text-ink-muted hover:text-ink hover:bg-sage-50'
               }`}
             >
               Interviews

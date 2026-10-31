@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/services/supabaseClient";
 import { toast } from "sonner";
-import { Download } from "lucide-react";
+import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail } from "lucide-react";
 import Image from "next/image";
 
 function CandidateFeedbackDialog({ candidate }) {
@@ -21,7 +21,6 @@ function CandidateFeedbackDialog({ candidate }) {
   const [candidatePicture, setCandidatePicture] = useState(null);
 
   const feedback = candidate?.conversation_transcript?.feedback || {};
-  const conversation_transcript = feedback?.conversation_transcript || {};
 
   const rating = feedback?.rating || {
     TechnicalSkills: 0,
@@ -36,7 +35,7 @@ function CandidateFeedbackDialog({ candidate }) {
     feedback?.RecommendationMessage ||
     feedback?.recommendationMessage ||
     feedback?.["Recommendation Message"] ||
-    "No recommendation message provided";
+    "No recommendation details provided.";
 
   const summaryText = feedback?.summery || feedback?.summary || "";
   const summaryArray = Array.isArray(summaryText)
@@ -53,12 +52,11 @@ function CandidateFeedbackDialog({ candidate }) {
     !feedback?.Recommendation?.toLowerCase().includes("not");
 
   const getQualitativeFeedback = (score) => {
-    if (score >= 8) return "Good";
-    if (score >= 5) return "Needs Improvement";
-    return "Bad";
+    if (score >= 8) return "Strong";
+    if (score >= 5) return "Proficient";
+    return "Needs Development";
   };
 
-  // Function to fetch candidate's CV information
   const fetchCandidateCV = async () => {
     if (!candidate?.email) return;
 
@@ -69,17 +67,13 @@ function CandidateFeedbackDialog({ candidate }) {
         .eq('email', candidate.email)
         .single();
 
-      if (error) {
-        console.error('Error fetching CV info:', error);
-        return;
-      }
+      if (error) return;
 
       if (userData?.cv_file_path) {
         setCvFilePath(userData.cv_file_path);
         setCvAvailable(true);
       }
 
-      // Set candidate picture
       if (userData?.picture) {
         setCandidatePicture(userData.picture);
       }
@@ -88,7 +82,6 @@ function CandidateFeedbackDialog({ candidate }) {
     }
   };
 
-  // Function to download CV
   const downloadCV = async () => {
     if (!cvFilePath) {
       toast.error('CV not available');
@@ -101,11 +94,8 @@ function CandidateFeedbackDialog({ candidate }) {
         .from('cv-uploads')
         .download(cvFilePath);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      // Create a blob URL and trigger download
       const blob = new Blob([data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -116,7 +106,7 @@ function CandidateFeedbackDialog({ candidate }) {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success('CV downloaded successfully!');
+      toast.success('CV downloaded successfully');
     } catch (error) {
       console.error('Error downloading CV:', error);
       toast.error('Failed to download CV');
@@ -125,7 +115,6 @@ function CandidateFeedbackDialog({ candidate }) {
     }
   };
 
-  // Fetch CV info when dialog opens
   React.useEffect(() => {
     if (candidate?.email) {
       fetchCandidateCV();
@@ -133,77 +122,55 @@ function CandidateFeedbackDialog({ candidate }) {
   }, [candidate?.email]);
 
   const emailTemplates = {
-    selected: `Subject: Congratulations! You've been selected for further evaluation
+    selected: `Subject: Invitation to Next Interview Stage: ${candidate?.jobPosition || "Role"}
 
 Dear ${candidate?.fullname || "Candidate"},
 
-We're pleased to inform you that based on your recent interview performance, you've been selected to move forward in our hiring process for the ${candidate?.jobPosition || "the position"} role.
+Thank you for completing your voice AI assessment session. We were impressed with your background and responses, and would like to invite you forward to the next stage in our evaluation process.
 
-Your performance in the key areas is summarized below:
+Key Evaluation Summary:
 ${Object.entries(rating)
   .map(
     ([skill, score]) =>
-      `- ${skill.replace(/([A-Z])/g, " $1").trim()}: ${getQualitativeFeedback(score)}`
+      `• ${skill.replace(/([A-Z])/g, " $1").trim()}: ${score}/10 (${getQualitativeFeedback(score)})`
   )
   .join("\n")}
 
-Our team will be in touch shortly to schedule the next phase. In the meantime, feel free to reply to this email with any questions.
+Our recruiting team will follow up shortly with scheduling options.
 
-Congratulations again!
+Sincerely,
+Hiring Team`,
 
-Best regards,
-${candidate?.fullname || "Candidate"}
-${candidate?.email || "No Email"}`,
-
-    rejected: `Subject: Update on Your Application for ${candidate?.jobPosition || "the position"}
+    rejected: `Subject: Update Regarding Your Application for ${candidate?.jobPosition || "the position"}
 
 Dear ${candidate?.fullname || "Candidate"},
 
-Thank you for taking the time to interview with us for the ${candidate?.jobPosition || "the position"} position. We appreciate the effort you put into the process.
+Thank you for completing your interview assessment for the ${candidate?.jobPosition || "the position"} role.
 
-Your performance in the key areas is summarized below:
-${Object.entries(rating)
-  .map(
-    ([skill, score]) =>
-      `- ${skill.replace(/([A-Z])/g, " $1").trim()}: ${getQualitativeFeedback(score)}`
-  )
-  .join("\n")}
+While your profile has merits, we have decided to advance other candidates whose current skill alignment more closely fits this position's immediate needs.
 
-After careful consideration, we've decided to move forward with other candidates whose skills and experience more closely match our current needs.
+We appreciate the time you dedicated to interviewing with us and wish you continued success.
 
-We wish you the best in your job search and professional endeavors.
+Sincerely,
+Hiring Team`,
 
-Best regards,
-${candidate?.fullname || "Candidate"}
-${candidate?.email || "No Email"}`,
-
-    reevaluate: `Subject: Request for Additional Evaluation for ${candidate?.jobPosition || "the position"}
+    reevaluate: `Subject: Follow-up on Your Interview Assessment for ${candidate?.jobPosition || "the position"}
 
 Dear ${candidate?.fullname || "Candidate"},
 
-Thank you for your recent interview for the ${candidate?.jobPosition || "the position"} role. While we found several strengths in your application, we'd like to gather some additional information before making a final decision.
+Thank you for completing the initial voice interview for the ${candidate?.jobPosition || "the position"} role. We would like to schedule a brief follow-up discussion to explore a few aspects of your experience in greater detail.
 
-Your performance in the key areas is summarized below:
-${Object.entries(rating)
-  .map(
-    ([skill, score]) =>
-      `- ${skill.replace(/([A-Z])/g, " $1").trim()}: ${getQualitativeFeedback(score)}`
-  )
-  .join("\n")}
+Please let us know your general availability over the upcoming days.
 
-Would you be available for a conversation at your earliest convenience? Please reply with your availability or any questions you might have.
-
-We appreciate your time and interest, and we look forward to continuing the conversation.
-
-Best regards,
-${candidate?.fullname || "Candidate"}
-${candidate?.email || "No Email"}`,
+Sincerely,
+Hiring Team`,
   };
 
   const handleEmailAction = (templateType) => {
     const email = candidate?.email || "";
-    const subject = emailTemplates[templateType].split("\n")[0].replace("Subject: ", "");
-    const body = emailTemplates[templateType].split("\n").slice(1).join("\n");
+    const lines = emailTemplates[templateType].split("\n");
+    const subject = lines[0].replace("Subject: ", "");
+    const body = lines.slice(1).join("\n");
 
     window.location.href = `mailto:${email}?subject=${encodeURIComponent(
       subject
@@ -213,82 +180,90 @@ ${candidate?.email || "No Email"}`,
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="text-primary hover:bg-primary/10">
+        <Button variant="outline" size="sm" className="text-xs font-medium">
           View Report
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Feedback Report</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-ink">
+            Candidate Assessment Report
+          </DialogTitle>
           <DialogDescription asChild>
-            <div className="mt-5 space-y-4">
-              {/* Candidate Header */}
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
+            <div className="mt-4 space-y-6 text-left">
+              {/* Header profile card */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-surface-alt border border-line">
+                <div className="flex items-center gap-3.5">
                   {candidatePicture ? (
                     <Image
                       src={candidatePicture}
                       alt={candidate?.fullname || "Candidate"}
-                      width={40}
-                      height={40}
-                      className="rounded-full"
+                      width={44}
+                      height={44}
+                      className="rounded-full ring-1 ring-line object-cover"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                      <h2 className="text-white font-bold">
-                        {candidate?.fullname?.[0]?.toUpperCase() || "?"}
-                      </h2>
+                    <div className="w-11 h-11 rounded-full bg-sage-200 text-sage-900 font-semibold text-sm flex items-center justify-center shrink-0">
+                      {candidate?.fullname?.[0]?.toUpperCase() || "?"}
                     </div>
                   )}
                   <div>
-                    <h2 className="font-bold">{candidate?.fullname || "No Name"}</h2>
-                    <h2 className="text-gray-500 text-sm">
-                      {candidate?.email || "No Email"}
-                    </h2>
+                    <h3 className="font-semibold text-ink text-base">
+                      {candidate?.fullname || "Unnamed Candidate"}
+                    </h3>
+                    <p className="text-xs font-mono text-ink-muted">
+                      {candidate?.email || "No email recorded"}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-primary text-2xl font-bold">
-                    {overallScore}/10
-                  </h2>
+
+                <div className="flex items-center gap-3 self-start sm:self-auto">
+                  <div className="text-right">
+                    <span className="text-xs text-ink-muted uppercase tracking-wider block">Score</span>
+                    <span className="text-2xl font-semibold text-sage-800 font-mono tabular-nums leading-none">
+                      {overallScore}/10
+                    </span>
+                  </div>
+
                   {cvAvailable && (
                     <Button
                       onClick={downloadCV}
                       disabled={downloadingCV}
                       variant="outline"
                       size="sm"
-                      className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50"
+                      className="h-9 text-xs font-medium border-line"
                     >
-                      <Download className="w-4 h-4" />
-                      {downloadingCV ? 'Downloading...' : 'Download CV'}
+                      <Download className="w-3.5 h-3.5 mr-1 text-sage-700" />
+                      {downloadingCV ? "Downloading..." : "Resume"}
                     </Button>
                   )}
                 </div>
               </div>
 
-              {/* Skills Assessment */}
+              {/* Skills Assessment Grid */}
               <div>
-                <h2 className="font-bold">Skills Assessment</h2>
-                <div className="mt-2 grid grid-cols-2 gap-x-10 gap-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-3">
+                  Evaluated Competencies
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 p-4 rounded-lg bg-surface border border-line">
                   {Object.entries(rating).map(([skill, score]) => (
-                    <div key={skill}>
-                      <div className="flex justify-between text-sm mb-1">
-                        {skill.replace(/([A-Z])/g, " $1").trim()}{" "}
-                        <span>{score}/10</span>
+                    <div key={skill} className="space-y-1">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-ink">{skill.replace(/([A-Z])/g, " $1").trim()}</span>
+                        <span className="font-mono text-sage-800 tabular-nums">{score}/10</span>
                       </div>
-                      <Progress
-                        value={score * 10}
-                        className="h-2 mt-1 [&>div]:bg-primary"
-                      />
+                      <Progress value={score * 10} className="h-2" />
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Performance Summary */}
-              <div className="mt-5">
-                <h2 className="font-bold">Performance Summary</h2>
-                <div className="p-5 bg-secondary my-3 rounded-md">
+              {/* AI Performance Summary */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2">
+                  AI Synthesis & Observations
+                </h4>
+                <div className="p-4 rounded-lg bg-sage-50 border border-line text-sm text-ink leading-relaxed">
                   {summaryArray.length > 0 ? (
                     summaryArray.map((line, index) => (
                       <p key={index} className="mb-2 last:mb-0">
@@ -296,53 +271,61 @@ ${candidate?.email || "No Email"}`,
                       </p>
                     ))
                   ) : (
-                    <p className="text-gray-500">No summary available</p>
+                    <p className="text-xs text-ink-muted italic">No text summary generated for this session.</p>
                   )}
                 </div>
               </div>
 
-              {/* Recommendation Section */}
+              {/* Recommendation Block & Actions */}
               <div
-                className={`p-5 rounded-md ${
+                className={`p-4 sm:p-5 rounded-lg border ${
                   isRecommended
-                    ? "bg-green-50 border border-green-200"
-                    : "bg-red-50 border-red-200 border"
+                    ? "bg-success-soft border-success/20 text-ink"
+                    : "bg-warning-soft border-warning/20 text-ink"
                 }`}
               >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h2
-                      className={`font-medium text-lg ${
-                        isRecommended ? "text-green-700" : "text-red-700"
-                      }`}
-                    >
-                      {feedback?.Recommendation || "Recommendation to Hire"}
-                    </h2>
-                    <p className="mt-2 whitespace-pre-wrap text-gray-700">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {isRecommended ? (
+                        <CheckCircle className="w-5 h-5 text-success shrink-0" strokeWidth={1.75} />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-warning shrink-0" strokeWidth={1.75} />
+                      )}
+                      <h4 className="font-semibold text-base text-ink">
+                        {feedback?.Recommendation || (isRecommended ? "Recommended Candidate" : "Flagged for Human Review")}
+                      </h4>
+                    </div>
+                    <p className="text-xs sm:text-sm text-ink-muted mt-2 leading-relaxed">
                       {recommendationMessage}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-2 ml-4">
+
+                  {/* Email action trigger buttons */}
+                  <div className="flex flex-col gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-line">
                     <Button
                       onClick={() => handleEmailAction("selected")}
-                      variant="outline"
-                      className="text-green-600 border-green-600 hover:bg-green-50"
+                      size="sm"
+                      className="h-8 text-xs font-medium bg-sage-700 hover:bg-sage-800 text-white justify-start"
                     >
-                      Selected for Further Evaluation
-                    </Button>
-                    <Button
-                      onClick={() => handleEmailAction("rejected")}
-                      variant="outline"
-                      className="text-red-600 border-red-600 hover:bg-red-50"
-                    >
-                      Rejected
+                      <Mail className="w-3.5 h-3.5 mr-1.5" />
+                      Advance Candidate
                     </Button>
                     <Button
                       onClick={() => handleEmailAction("reevaluate")}
                       variant="outline"
-                      className="text-yellow-600 border-yellow-600 hover:bg-yellow-50"
+                      size="sm"
+                      className="h-8 text-xs font-medium justify-start"
                     >
-                      Request Re-Evaluation
+                      Request Follow-up
+                    </Button>
+                    <Button
+                      onClick={() => handleEmailAction("rejected")}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-medium text-danger border-line hover:bg-danger-soft justify-start"
+                    >
+                      Send Rejection
                     </Button>
                   </div>
                 </div>

@@ -4,8 +4,6 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../services/supabaseClient";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { motion } from 'framer-motion';
-import Image from 'next/image';
 
 const AuthContext = createContext();
 
@@ -16,18 +14,31 @@ export const AuthContextProvider = ({ children }) => {
 
   // Fetch initial session + subscribe to changes
   useEffect(() => {
+    let mounted = true;
     const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (mounted) {
+          setSession(data?.session || null);
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
+        if (mounted) {
+          setSession(null);
+        }
+      }
     };
     initSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      if (mounted) {
+        setSession(session || null);
+      }
     });
 
     return () => {
-      listener.subscription.unsubscribe();
+      mounted = false;
+      listener?.subscription?.unsubscribe();
     };
   }, []);
 
@@ -161,16 +172,7 @@ export const AuthContextProvider = ({ children }) => {
     router.push("/login");
   };
 
-  if (session === undefined) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading Screen. Please Wait..</p>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <AuthContext.Provider

@@ -11,8 +11,6 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-import { Button } from "@/components/ui/button";
-
 const AlertConfirmation = ({ children, stopInterview }) => {
     return (
         <AlertDialog>
@@ -21,14 +19,19 @@ const AlertConfirmation = ({ children, stopInterview }) => {
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogTitle>End Interview Session?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. Your interview will end.
+                        This will terminate the voice interview call immediately and generate your evaluation report based on answers provided so far.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={()=> stopInterview()}>Continue</AlertDialogAction>
+                    <AlertDialogCancel>Resume Session</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => stopInterview()}
+                      className="bg-danger hover:bg-danger/90 text-white"
+                    >
+                      End Interview
+                    </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

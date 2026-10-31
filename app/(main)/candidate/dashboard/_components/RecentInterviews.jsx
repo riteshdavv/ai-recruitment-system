@@ -2,10 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@/app/provider';
 import { supabase } from '@/services/supabaseClient';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Video, Calendar, Star, CheckCircle, Clock, VerifiedIcon } from 'lucide-react';
+import { Video, Calendar, Clock, Star, CheckCircle, ArrowRight } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 
@@ -15,160 +13,169 @@ export default function RecentInterviews() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user?.email) {
       fetchRecentInterviews();
+    } else if (user === null) {
+      setLoading(false);
     }
   }, [user]);
 
   const fetchRecentInterviews = async () => {
     try {
       setLoading(true);
-      
-      // Fetch recent interview results for this candidate (limit to 3)
       const { data: results, error } = await supabase
         .from('interview_results')
-        .select(`
-          *,
-          Interviews (
-            jobPosition,
-            jobDescription,
-            type,
-            duration,
-            created_at
-          )
-        `)  
+        .select('*')
         .eq('email', user.email)
         .order('completed_at', { ascending: false })
-        .limit(3);
+        .limit(4);
 
-      if (error) {
-        console.error('Error fetching recent interviews:', error);
+      if (error) throw error;
+
+      if (!results || results.length === 0) {
+        setRecentInterviews([]);
         return;
       }
 
-      setRecentInterviews(results || []);
+      const interviewIds = [...new Set(results.map((r) => r.interview_id).filter(Boolean))];
+      let interviewsMap = {};
+
+      if (interviewIds.length > 0) {
+        const { data: interviewsData } = await supabase
+          .from('Interviews')
+          .select('interview_id, jobPosition, jobDescription, type, duration, created_at')
+          .in('interview_id', interviewIds);
+
+        if (interviewsData) {
+          interviewsMap = interviewsData.reduce((acc, curr) => {
+            acc[curr.interview_id] = curr;
+            return acc;
+          }, {});
+        }
+      }
+
+      const combined = results.map((r) => ({
+        ...r,
+        Interviews: interviewsMap[r.interview_id] || null,
+      }));
+
+      setRecentInterviews(combined);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching recent interviews:', error?.message || error);
+      setRecentInterviews([]);
     } finally {
       setLoading(false);
     }
   };
 
   const calculateOverallScore = (feedback) => {
-    if (!feedback?.rating) return 'N/A';
-    
+    if (!feedback?.rating) return null;
     const ratings = Object.values(feedback.rating).filter(val => typeof val === 'number');
-    if (ratings.length === 0) return 'N/A';
-    
-    const average = Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
-    return `${average}/10`;
+    if (ratings.length === 0) return null;
+    return Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
   };
-
-  const getScoreColor = (score) => {
-    if (score === 'N/A') return 'bg-gray-100 text-gray-600';
-    const numScore = parseInt(score);
-    if (numScore >= 8) return 'bg-green-100 text-green-700';
-    if (numScore >= 6) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-red-100 text-red-700';
-  };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Video className="w-5 h-5" />
-            Recent Interviews
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600">Loading...</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Video className="w-5 h-5" />
-            Recent Interviews
-          </CardTitle>
-          {recentInterviews.length > 0 && (
-            <Link href="/candidate/interviews">
-              <Button variant="outline" size="sm">
-                View All
-              </Button>
-            </Link>
-          )}
+    <div className="bg-surface rounded-lg border border-line shadow-card p-5 sm:p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h3 className="text-lg font-semibold text-ink">Recent Interview History</h3>
+          <p className="text-xs text-ink-muted mt-0.5">Your completed sessions, transcript records, and feedback</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {recentInterviews.length === 0 ? (
-          <div className="text-center py-8">
-            <Video className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">No interviews yet</p>
-            <p className="text-gray-400 text-xs mt-1">
-              Your interview history will appear here
-            </p>
+        {recentInterviews.length > 0 && (
+          <Link href="/candidate/interviews">
+            <Button variant="ghost" size="sm" className="text-xs font-medium text-sage-700 hover:text-sage-800 hover:bg-sage-100 flex items-center gap-1 group">
+              <span>View All</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" strokeWidth={1.75} />
+            </Button>
+          </Link>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-16 bg-surface-alt border border-line rounded-md animate-pulse" />
+          ))}
+        </div>
+      ) : recentInterviews.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-center rounded-lg border border-dashed border-line">
+          <div className="w-10 h-10 rounded-full bg-sage-100 text-sage-700 flex items-center justify-center mb-2.5">
+            <Video className="w-5 h-5" strokeWidth={1.75} />
           </div>
-        ) : (
-          <div className="space-y-4">
-            {recentInterviews.map((result, index) => (
-              <div key={result.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium text-sm">
-                      {result.Interviews?.jobPosition || 'Interview'}
-                    </h4>
-                    <Badge variant="outline" className="text-xs">
-                      {result.Interviews?.type || 'Interview'}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {moment(result.created_at).format('MMM DD')}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {result.Interviews?.duration || 'N/A'}
-                    </div>
+          <p className="text-sm font-medium text-ink">No interviews completed yet</p>
+          <p className="text-xs text-ink-muted mt-0.5 max-w-xs">
+            Enter an interview code above to begin your first voice evaluation session.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {recentInterviews.map((result) => {
+            const score = result.conversation_transcript?.feedback
+              ? calculateOverallScore(result.conversation_transcript.feedback)
+              : null;
+            const feedback = result.conversation_transcript?.feedback;
+            const isRecommended = feedback?.Recommendation
+              ? !feedback.Recommendation.toLowerCase().includes('not')
+              : null;
+
+            return (
+              <div
+                key={result.id}
+                className="bg-surface rounded-md border border-line p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-sage-300 transition-colors"
+              >
+                <div className="min-w-0">
+                  <h4 className="font-medium text-sm text-ink truncate">
+                    {result.Interviews?.jobPosition || 'Interview Session'}
+                  </h4>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-ink-muted">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      {moment(result.completed_at || result.created_at).format('MMM DD, YYYY')}
+                    </span>
+                    {result.Interviews?.duration && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
+                          {result.Interviews.duration}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  {result.status === 'completed' ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      {result.conversation_transcript?.feedback && (
-                        <Badge 
-                          className={`text-xs ${getScoreColor(calculateOverallScore(result.conversation_transcript.feedback))}`}
-                        >
-                          <Star className="w-3 h-3 mr-1" />
-                          {calculateOverallScore(result.conversation_transcript.feedback)}
-                        </Badge>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <VerifiedIcon className="w-4 h-4 text-yellow-500" />
-                      <Badge variant="secondary" className="text-xs">
-                        Completed
-                      </Badge>
-                    </>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {score !== null && (
+                    <span className="inline-flex items-center gap-1 text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-sage-100 text-sage-900 border border-sage-200 tabular-nums">
+                      <Star className="w-3 h-3 text-sage-700" strokeWidth={2} />
+                      {score}/10
+                    </span>
+                  )}
+                  {isRecommended !== null && (
+                    <span
+                      className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                        isRecommended
+                          ? 'bg-success-soft text-success border border-success/20'
+                          : 'bg-danger-soft text-danger border border-danger/20'
+                      }`}
+                    >
+                      {isRecommended ? 'Recommended' : 'Needs Review'}
+                    </span>
+                  )}
+                  {score === null && isRecommended === null && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-success-soft text-success border border-success/20">
+                      <CheckCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      Completed
+                    </span>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
-} 
+}

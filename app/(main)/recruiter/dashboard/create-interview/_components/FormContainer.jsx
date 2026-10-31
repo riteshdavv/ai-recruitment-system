@@ -22,79 +22,88 @@ function FormContainer({ onHandleInputChange, GoToNext }) {
   }, [interviewType]);
 
   const AddInterviewType = (name) => {
-    const data = interviewType.includes(name);
-    console.log(data, name)
-    if (!data) {
+    const exists = interviewType.includes(name);
+    if (!exists) {
       setInterviewType(prev => [...prev, name]);
     } else {
-      const result = interviewType.filter(item => item !== name);
-      setInterviewType(result);
+      setInterviewType(prev => prev.filter(item => item !== name));
     }
-  }
-console.log(interviewType);
+  };
+
   return (
-    <div className="p-5 bg-white rounded-xl shadow-md">
+    <div className="bg-surface rounded-lg border border-line p-6 shadow-card space-y-5">
       <div>
-        <h2 className="text-sm font-medium">Job Position</h2>
+        <label className="block text-sm font-medium text-ink mb-1.5">
+          Job Position / Title
+        </label>
         <Input
-          placeholder="e.g. Software Engineer"
-          className="mt-2"
-          onChange={(event) => {
-            onHandleInputChange('jobPosition', event.target.value);
-          }}
+          placeholder="e.g. Senior Frontend Engineer"
+          onChange={(e) => onHandleInputChange('jobPosition', e.target.value)}
         />
       </div>
-      <div className="mt-4">
-        <h2 className="text-sm font-medium">Job Description</h2>
+
+      <div>
+        <label className="block text-sm font-medium text-ink mb-1.5">
+          Job Description & Requirements
+        </label>
         <Textarea
-          placeholder="Enter detailed job description"
-          className="h-[200px] mt-2"
-          onChange={(event) => {
-            onHandleInputChange('jobDescription', event.target.value);
-          }}
+          placeholder="Paste key responsibilities, required skills, and qualifications for the AI interviewer to assess..."
+          className="min-h-[160px]"
+          onChange={(e) => onHandleInputChange('jobDescription', e.target.value)}
         />
       </div>
-      <div className="mt-4">
-        <h2 className="text-sm font-medium">Interview Duration</h2>
-        <Select
-          onValueChange={(value) => {
-            onHandleInputChange('duration', value);
-          }}
-        >
-          <SelectTrigger className="w-full mt-2">
-            <SelectValue placeholder="Select Duration" />
+
+      <div>
+        <label className="block text-sm font-medium text-ink mb-1.5">
+          Expected Interview Duration
+        </label>
+        <Select onValueChange={(val) => onHandleInputChange('duration', val)}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select target duration" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="5 Min">5 Min</SelectItem>
-            <SelectItem value="15 Min">15 Min</SelectItem>
-            <SelectItem value="30 Min">30 Min</SelectItem>
-            <SelectItem value="45 Min">45 Min</SelectItem>
-            <SelectItem value="60 Min">60 Min</SelectItem>
+            <SelectItem value="5 Min">5 Minutes (Quick Screening)</SelectItem>
+            <SelectItem value="15 Min">15 Minutes (Standard Screening)</SelectItem>
+            <SelectItem value="30 Min">30 Minutes (Comprehensive)</SelectItem>
+            <SelectItem value="45 Min">45 Minutes (Deep Dive)</SelectItem>
+            <SelectItem value="60 Min">60 Minutes (Full Technical)</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <div className="mt-4">
-        <h2 className="text-sm font-medium">Interview Type</h2>
-        <div className="flex gap-3 flex-wrap mt-2">
-          {InterviewType.map((type, index) => (
-            <div
-              key={index}
-              className={`cursor-pointer flex items-center gap-2 p-1 px-2
-                border border-gray-300 rounded-2xl shadow-sm
-                ${interviewType.includes(type.name) ? 'text-primary bg-blue-100' : ''}
-                hover:bg-gray-100`}
-              onClick={() => AddInterviewType(type.name)
-              }
-            >
-              <type.icon className="h-4 w-4" />
-              <span className="text-sm">{type.name}</span>
-            </div>
-          ))}
+
+      <div>
+        <label className="block text-sm font-medium text-ink mb-2">
+          Interview Evaluation Focus (Select multiple)
+        </label>
+        <div className="flex gap-2 flex-wrap">
+          {InterviewType.map((type, index) => {
+            const isSelected = interviewType.includes(type.name);
+            return (
+              <button
+                key={index}
+                type="button"
+                className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  isSelected
+                    ? 'bg-sage-100 text-sage-900 border-sage-700 font-semibold'
+                    : 'bg-surface text-ink-muted border-line hover:bg-sage-50 hover:text-ink'
+                }`}
+                onClick={() => AddInterviewType(type.name)}
+              >
+                <type.icon className={`h-3.5 w-3.5 ${isSelected ? 'text-sage-700' : 'text-ink-muted'}`} strokeWidth={1.75} />
+                <span>{type.name}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
-      <div className="mt-7 flex justify-end " onClick={() =>GoToNext() }>
-        <Button>
-          Generate Question <ArrowRight className="ml-2 cursor-pointer" />
+
+      <div className="pt-4 border-t border-line flex justify-end">
+        <Button
+          onClick={GoToNext}
+          className="bg-sage-700 hover:bg-sage-800 text-white font-medium"
+        >
+          <span>Generate Question Plan</span>
+          <ArrowRight className="w-4 h-4 ml-1.5" strokeWidth={2} />
         </Button>
       </div>
     </div>

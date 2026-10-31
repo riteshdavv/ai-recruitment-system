@@ -108,10 +108,10 @@ export default function AuthCallback() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center bg-sage-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Finalizing Google login, please wait...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-sage-700 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-sm text-ink-muted">Finalizing authentication, please wait...</p>
         </div>
       </div>
     );

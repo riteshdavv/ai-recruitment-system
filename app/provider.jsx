@@ -11,32 +11,37 @@ function Provider({ children }) {
 
     // Fetch user from Supabase and DB
     const fetchAndSetUser = async () => {
-        const { data: { user: supaUser } } = await supabase.auth.getUser();
-        if (!supaUser) {
-            setUser(null);
-            return;
+      try {
+        const { data: { user: supaUser }, error: authError } = await supabase.auth.getUser();
+        if (authError || !supaUser) {
+          setUser(null);
+          return;
         }
         let { data: users, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', supaUser.email);
-        if (users?.length === 0) {
-            // Do NOT create user here for OAuth signups!
-            // Let /auth/callback handle user creation and role assignment
-            setUser(null);
-            return;
+          .from('users')
+          .select('*')
+          .eq('email', supaUser.email);
+        if (error || !users || users.length === 0) {
+          // Do NOT create user here for OAuth signups!
+          // Let /auth/callback handle user creation and role assignment
+          setUser(null);
+          return;
         }
         
         // Check if user is banned
         if (users[0]?.banned) {
-            await supabase.auth.signOut();
-            toast.error('Your account has been banned. Please contact support for more information.');
-            router.push('/login');
-            setUser(null);
-            return;
+          await supabase.auth.signOut();
+          toast.error('Your account has been banned. Please contact support for more information.');
+          router.push('/login');
+          setUser(null);
+          return;
         }
         
         setUser(users[0]);
+      } catch (err) {
+        console.error("fetchAndSetUser error:", err);
+        setUser(null);
+      }
     };
 
     // Function to update user credits

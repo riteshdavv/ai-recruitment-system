@@ -1,16 +1,14 @@
 "use client"
-import { Phone, File as FileIcon } from 'lucide-react'
-import React from 'react'
+import { Phone, File as FileIcon, ArrowRight } from 'lucide-react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/services/supabaseClient'
 
 function CreateOptions() {
-
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -32,54 +30,67 @@ function CreateOptions() {
     setLoading(false);
 
     if (error || !data) {
-      toast.error('Invalid interview code. Please try again.');
+      toast.error('Invalid interview code. Please verify with your recruiter.');
       return;
     }
 
-    toast.success('Redirecting to your interview...');
+    toast.success('Interview verified. Loading session...');
     router.push(`/interview/${code.trim()}`);
   };
 
   return (
-    <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
-  {/* Interview Code Card */}
-  <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm flex flex-col h-full">
-    <Phone className="p-2 text-blue-600 bg-blue-50 rounded-lg h-12 w-12" />
-    <h2 className="mt-3 mb-2 font-semibold">Interview Code</h2>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Join with Interview Code */}
+      <div className="bg-surface rounded-lg border border-line p-5 sm:p-6 shadow-card flex flex-col justify-between">
+        <div>
+          <div className="w-10 h-10 rounded-md bg-sage-100 flex items-center justify-center text-sage-700 mb-3.5">
+            <Phone className="w-5 h-5" strokeWidth={1.75} />
+          </div>
+          <h3 className="text-lg font-semibold text-ink">Join with Interview Code</h3>
+          <p className="text-sm text-ink-muted mt-1 mb-4 leading-relaxed">
+            Enter the unique code or link shared by your recruiting team to launch your voice interview session.
+          </p>
+        </div>
 
-    <Input
-      value={code}
-      onChange={(e) => setCode(e.target.value)}
-      placeholder="Enter your code (UUID)"
-      className="mb-2"
-    />
-
-    <p className="text-gray-500 text-sm mb-4">
-      Get your code or link from your recruiter.
-    </p>
-
-    <div className="mt-auto">
-      <Button onClick={handleStart} disabled={loading} className="w-full cursor-pointer">
-        {loading ? 'Checking...' : 'Start'}
-      </Button>
-    </div>
-  </div>
-
-  {/* Upload CV Card */}
-  <Link href={'/candidate/upload-cv'}>
-    <div className='bg-white border border-gray-200 rounded-lg p-5 shadow-sm cursor-pointer flex flex-col h-full'>
-      <FileIcon className='p-2 text-blue-600 bg-blue-50 rounded-lg h-12 w-12' />
-      <h2 className="mt-3 font-semibold">Upload your CV</h2>
-      <p className='text-gray-500 text-sm mb-4'>
-        Create AI interviews and schedule them with candidates
-      </p>
-      <div className="mt-auto">
-        <div className="w-full h-[40px]"></div> {/* Spacer to match button height */}
+        <div className="flex items-center gap-2 pt-2">
+          <Input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Paste interview code (e.g., UUID)"
+            className="h-10 text-xs sm:text-sm font-mono"
+            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
+          />
+          <Button
+            onClick={handleStart}
+            disabled={loading}
+            className="h-10 px-4 bg-sage-700 hover:bg-sage-800 text-white rounded-md shrink-0 text-sm font-medium"
+          >
+            {loading ? 'Verifying...' : 'Start'}
+          </Button>
+        </div>
       </div>
+
+      {/* Upload CV */}
+      <Link href="/candidate/upload-cv" className="block">
+        <div className="bg-surface rounded-lg border border-line p-5 sm:p-6 shadow-card hover:border-sage-300 hover:shadow-md transition-all flex flex-col justify-between h-full group">
+          <div>
+            <div className="w-10 h-10 rounded-md bg-sage-100 flex items-center justify-center text-sage-700 mb-3.5 group-hover:bg-sage-200 transition-colors">
+              <FileIcon className="w-5 h-5" strokeWidth={1.75} />
+            </div>
+            <h3 className="text-lg font-semibold text-ink">Upload Candidate Resume</h3>
+            <p className="text-sm text-ink-muted mt-1 mb-4 leading-relaxed">
+              Upload your CV or résumé so recruiters can review your background alongside your AI interview performance.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between text-xs font-medium text-sage-700 pt-3 border-t border-line">
+            <span>Manage CV profile</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" strokeWidth={1.75} />
+          </div>
+        </div>
+      </Link>
     </div>
-  </Link>
-</div>
-  )
+  );
 }
 
-export default CreateOptions
+export default CreateOptions;

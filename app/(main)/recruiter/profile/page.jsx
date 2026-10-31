@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, Camera, Save, Loader2 } from 'lucide-react';
+import { User, Mail, Camera, Save, Loader2, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function RecruiterProfile() {
@@ -33,6 +33,8 @@ export default function RecruiterProfile() {
   useEffect(() => {
     if (user) {
       loadProfileData();
+    } else if (user === null) {
+      setLoading(false);
     }
   }, [user]);
 
@@ -40,14 +42,12 @@ export default function RecruiterProfile() {
     try {
       setLoading(true);
       
-      // Get user data from Provider context
       let userData = {
         fullname: user?.name || user?.email?.split('@')[0] || '',
         email: user?.email || '',
         picture: user?.picture || null
       };
 
-      // Try to get additional data from users table
       if (user?.email) {
         const { data: userRecord, error } = await supabase
           .from('users')
@@ -86,13 +86,11 @@ export default function RecruiterProfile() {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image size should be less than 5MB');
       return;
@@ -100,92 +98,53 @@ export default function RecruiterProfile() {
 
     try {
       setSaving(true);
-      
-      // Upload to Supabase storage
-      const fileName = `profile-${user.email}-${Date.now()}`;
-      const { data, error } = await supabase.storage
-        .from('profile-pictures')
-        .upload(fileName, file);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.email}_${Date.now()}.${fileExt}`;
+      const filePath = `profile-pictures/${fileName}`;
 
-      if (error) {
-        console.error('Upload error:', error);
-        toast.error('Failed to upload image');
-        return;
-      }
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('profile-pictures')
-        .getPublicUrl(fileName);
+      if (uploadError) throw uploadError;
 
-      const newPictureUrl = urlData.publicUrl;
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
 
-      // Update local state
-      setProfileData(prev => ({
-        ...prev,
-        picture: newPictureUrl
-      }));
-
-      // Immediately save to database
       const { error: updateError } = await supabase
         .from('users')
-        .upsert({
-          email: user.email,
-          name: profileData.fullname,
-          picture: newPictureUrl,
-        }, {
-          onConflict: 'email'
-        });
+        .update({ picture: publicUrl })
+        .eq('email', user.email);
 
-      if (updateError) {
-        console.error('Database update error:', updateError);
-        toast.error('Failed to save picture to database');
-        return;
-      }
+      if (updateError) throw updateError;
 
-      // Update original data to reflect the change
-      setOriginalData(prev => ({
-        ...prev,
-        picture: newPictureUrl
-      }));
-
-      toast.success('Profile picture updated successfully!');
+      setProfileData(prev => ({ ...prev, picture: publicUrl }));
+      toast.success('Profile picture updated successfully');
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
+      console.error('Error uploading picture:', error);
+      toast.error('Failed to upload picture');
     } finally {
       setSaving(false);
     }
   };
 
   const handleSave = async () => {
-    if (!user?.email) {
-      toast.error('User not authenticated');
-      return;
-    }
-
     try {
       setSaving(true);
 
-      // Update users table
       const { error } = await supabase
         .from('users')
-        .upsert({
-          email: user.email,
+        .update({
           name: profileData.fullname,
-          picture: profileData.picture,
-        }, {
-          onConflict: 'email'
-        });
+          picture: profileData.picture
+        })
+        .eq('email', user.email);
 
-      if (error) {
-        console.error('Update error:', error);
-        toast.error('Failed to update profile');
-        return;
-      }
+      if (error) throw error;
 
       setOriginalData(profileData);
-      toast.success('Profile updated successfully!');
+      toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error('Failed to save profile');
@@ -202,7 +161,7 @@ export default function RecruiterProfile() {
       if (error) {
         toast.error('Failed to change password');
       } else {
-        toast.success('Password changed successfully!');
+        toast.success('Password changed successfully');
         setPassword("");
       }
     } catch (e) {
@@ -218,44 +177,60 @@ export default function RecruiterProfile() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Loading profile...</span>
+      <div className="max-w-4xl mx-auto space-y-6 animate-pulse">
+        <div className="h-8 bg-surface rounded w-48 border border-line" />
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="h-72 bg-surface rounded-lg border border-line" />
+          <div className="h-72 bg-surface rounded-lg border border-line" />
+        </div>
       </div>
     );
   }
 
+  const initials = profileData.fullname
+    ? profileData.fullname
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'U';
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
-        <p className="text-gray-600 mt-1">Manage your personal information and profile picture</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          Profile Settings
+        </h1>
+        <p className="text-sm text-ink-muted mt-0.5">
+          Manage your personal details and account settings
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Picture Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="w-5 h-5" />
-              Profile Picture
+        <Card className="bg-surface border-line shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-ink flex items-center gap-2">
+              <Camera className="w-4 h-4 text-sage-700" />
+              Profile Photo
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-col items-center space-y-4">
-              <Avatar className="w-24 h-24">
+            <div className="flex flex-col items-center space-y-4 py-2">
+              <Avatar className="w-24 h-24 border border-line">
                 <AvatarImage src={profileData.picture} alt="Profile" />
-                <AvatarFallback className="text-2xl">
-                  {profileData.fullname?.charAt(0)?.toUpperCase() || 'U'}
+                <AvatarFallback className="text-xl font-semibold bg-sage-200 text-sage-900">
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               
               <div className="flex flex-col items-center space-y-2">
                 <Label htmlFor="picture-upload" className="cursor-pointer">
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="outline" size="sm" asChild className="h-9 text-xs">
                     <span>
-                      <Camera className="w-4 h-4 mr-2" />
-                      Change Picture
+                      <Camera className="w-3.5 h-3.5 mr-1.5" />
+                      Change photo
                     </span>
                   </Button>
                 </Label>
@@ -267,8 +242,8 @@ export default function RecruiterProfile() {
                   className="hidden"
                 />
                 {saving && (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                  <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Uploading...
                   </div>
                 )}
@@ -278,36 +253,42 @@ export default function RecruiterProfile() {
         </Card>
 
         {/* Personal Information Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Personal Information
+        <Card className="bg-surface border-line shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-ink flex items-center gap-2">
+              <User className="w-4 h-4 text-sage-700" />
+              Personal Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div>
-                <Label htmlFor="fullname">Full Name</Label>
+                <Label htmlFor="fullname" className="text-xs font-medium text-ink">
+                  Full Name
+                </Label>
                 <Input
                   id="fullname"
                   value={profileData.fullname}
                   onChange={(e) => handleInputChange('fullname', e.target.value)}
                   placeholder="Enter your full name"
+                  className="mt-1"
                 />
               </div>
               
               <div>
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email" className="text-xs font-medium text-ink">
+                  Email Address
+                </Label>
                 <Input
                   id="email"
                   value={profileData.email}
                   placeholder="Enter your email"
                   type="email"
                   disabled
+                  className="mt-1 bg-sage-50 text-ink-muted cursor-not-allowed"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Email cannot be changed for security reasons
+                <p className="text-[11px] text-ink-subtle mt-1">
+                  Email address is linked to your login provider
                 </p>
               </div>
             </div>
@@ -315,7 +296,7 @@ export default function RecruiterProfile() {
             <Button 
               onClick={handleSave}
               disabled={!hasChanges() || saving}
-              className="w-full"
+              className="w-full h-10 text-xs font-medium"
             >
               {saving ? (
                 <>
@@ -324,7 +305,7 @@ export default function RecruiterProfile() {
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2" />
+                  <Save className="w-4 h-4 mr-1.5" />
                   Save Changes
                 </>
               )}
@@ -333,72 +314,78 @@ export default function RecruiterProfile() {
         </Card>
 
         {/* Security Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Security
+        <Card className="bg-surface border-line shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-ink flex items-center gap-2">
+              <Shield className="w-4 h-4 text-sage-700" />
+              Security & Password
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="password" className="py-2">Change Password</Label>
+              <Label htmlFor="password" className="text-xs font-medium text-ink">
+                Change Password
+              </Label>
               <Input
                 id="password"
                 type="password"
-                value={isGoogleUser ? 'You can\'t change the password because you login with Google OAuth' : password}
+                value={isGoogleUser ? 'Managed by Google OAuth' : password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder={isGoogleUser ? '' : 'Enter new password'}
                 disabled={isGoogleUser || passwordSaving}
+                className="mt-1"
               />
               {isGoogleUser && (
-                <p className="text-xs text-gray-500 mt-1">You can&apos;t change the password because you login with Google OAuth</p>
+                <p className="text-[11px] text-ink-muted mt-1">
+                  You signed in with Google OAuth. Password changes are handled by your Google account.
+                </p>
               )}
             </div>
             <Button
+              variant="outline"
               onClick={handlePasswordChange}
               disabled={isGoogleUser || !password || passwordSaving}
-              className="w-full"
+              className="w-full h-10 text-xs font-medium"
             >
               {passwordSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Changing...
+                  Updating...
                 </>
               ) : (
-                'Change Password'
+                'Update Password'
               )}
             </Button>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Account Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5" />
-            Account Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label className="text-sm font-medium text-gray-500">Account Type</Label>
-              <p className="text-sm text-gray-900">Recruiter</p>
+        {/* Account Information */}
+        <Card className="bg-surface border-line shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-ink flex items-center gap-2">
+              <Mail className="w-4 h-4 text-sage-700" />
+              Account Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 py-1">
+              <div className="flex justify-between items-center text-sm border-b border-line pb-2.5">
+                <span className="text-ink-muted">Account role</span>
+                <span className="font-medium text-ink">Recruiter</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-ink-muted">Member since</span>
+                <span className="font-mono text-ink tabular-nums text-xs">
+                  {user?.created_at ? 
+                    new Date(user.created_at).toLocaleDateString() : 
+                    'N/A'
+                  }
+                </span>
+              </div>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-gray-500">Member Since</Label>
-              <p className="text-sm text-gray-900">
-                {user?.created_at ? 
-                  new Date(user.created_at).toLocaleDateString() : 
-                  'N/A'
-                }
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
-} 
+}

@@ -4,13 +4,11 @@ import CreateOptions from "./_components/CreateOptions";
 import RecentInterviews from "./_components/RecentInterviews";
 
 function DashboardC() {
-
     return (
-      
-      <div className="space-y-6">
-        <h2 className='my-3 font-bold text-2xl'>Dashboard</h2>
-        <CreateOptions/>
-        <RecentInterviews/>
+      <div className="space-y-6 py-2">
+        <WelcomeContainer />
+        <CreateOptions />
+        <RecentInterviews />
       </div>
     );
   }

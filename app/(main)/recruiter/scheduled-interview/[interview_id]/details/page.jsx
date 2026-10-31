@@ -16,23 +16,42 @@ function InterviewDetail() {
   useEffect(() => {
     if (user) {
       GetInterviewDetail();
+    } else if (user === null) {
+      setLoading(false);
     }
   }, [user]);
 
   const GetInterviewDetail = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data: interviewData, error: interviewError } = await supabase
         .from("Interviews")
-        .select(
-          "jobPosition, jobDescription, type, questionList, duration, interview_id, created_at, interview_results (email, fullname,conversation_transcript, recommendations, interview_id,completed_at)"
-        )
+        .select("jobPosition, jobDescription, type, questionList, duration, interview_id, created_at")
         .eq("userEmail", user.email)
         .eq("interview_id", interview_id);
 
-      if (error) throw error;
+      if (interviewError) throw interviewError;
 
-      setInterviewDetail(data?.[0] || null);
+      if (!interviewData || interviewData.length === 0) {
+        setInterviewDetail(null);
+        return;
+      }
+
+      const { data: resultsData, error: resultsError } = await supabase
+        .from("interview_results")
+        .select("email, fullname, conversation_transcript, recommendations, interview_id, completed_at")
+        .eq("interview_id", interview_id);
+
+      if (resultsError) {
+        console.error("Error fetching candidate results:", resultsError?.message || resultsError);
+      }
+
+      const fullDetail = {
+        ...interviewData[0],
+        interview_results: resultsData || [],
+      };
+
+      setInterviewDetail(fullDetail);
     } catch (err) {
       console.error("Error fetching interview details:", err);
       setError(err.message);
@@ -42,7 +61,13 @@ function InterviewDetail() {
   };
 
   if (loading) {
-    return <div className="mt-5">Loading interview details...</div>;
+    return (
+      <div className="space-y-6 mt-5 animate-pulse">
+        <div className="h-8 bg-surface rounded w-64 border border-line" />
+        <div className="h-44 bg-surface rounded-lg border border-line" />
+        <div className="h-64 bg-surface rounded-lg border border-line" />
+      </div>
+    );
   }
 
   if (error) {
