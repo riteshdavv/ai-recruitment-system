@@ -69,13 +69,17 @@ function Provider({ children }) {
     useEffect(() => {
         fetchAndSetUser(); // Initial fetch
         // Listen for auth state changes
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, _session) => {
+        const { data: listener } = supabase.auth.onAuthStateChange((event, _session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                router.push('/reset-password');
+                return;
+            }
             fetchAndSetUser();
         });
         return () => {
             listener?.subscription?.unsubscribe();
         };
-    }, []);
+    }, [router]);
 
     return (
         <UserDetailContext.Provider value={{ user, setUser, updateUserCredits }}>

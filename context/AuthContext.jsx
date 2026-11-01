@@ -30,7 +30,11 @@ export const AuthContextProvider = ({ children }) => {
     };
     initSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        router.push("/reset-password");
+        return;
+      }
       if (mounted) {
         setSession(session || null);
       }

@@ -10,6 +10,16 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleAuthRedirect = async () => {
+      // If arrived via password recovery, redirect directly to /reset-password
+      if (typeof window !== "undefined") {
+        const hash = window.location.hash || "";
+        const search = window.location.search || "";
+        if (hash.includes("type=recovery") || search.includes("type=recovery")) {
+          router.push(`/reset-password${hash || search}`);
+          return;
+        }
+      }
+
       setLoading(true);
       const {
         data: { session },

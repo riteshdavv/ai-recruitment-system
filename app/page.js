@@ -14,6 +14,16 @@ export default function Home() {
   const { user } = useUser();
 
   useEffect(() => {
+    // Check if user arrived via a password reset/recovery link
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+      if (hash.includes("type=recovery") || search.includes("type=recovery")) {
+        router.push(`/reset-password${hash || search}`);
+        return;
+      }
+    }
+
     if (user) {
       if (user.role === 'recruiter') {
         router.push('/recruiter/dashboard');
