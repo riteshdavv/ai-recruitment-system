@@ -90,26 +90,73 @@ function CandidateFeedbackDialog({ candidate }) {
 
     setDownloadingCV(true);
     try {
+      // 1. Try public URL fetch
+      const { data: publicData } = supabase.storage
+        .from('cv-uploads')
+        .getPublicUrl(cvFilePath);
+
+      if (publicData?.publicUrl) {
+        try {
+          const res = await fetch(publicData.publicUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${candidate?.fullname || 'candidate'}_CV.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast.success('CV downloaded successfully');
+            return;
+          }
+        } catch (fetchErr) {
+          console.warn('Public fetch failed, trying download fallback:', fetchErr);
+        }
+      }
+
+      // 2. Fallback to download()
       const { data, error } = await supabase.storage
         .from('cv-uploads')
         .download(cvFilePath);
 
-      if (error) throw error;
+      if (!error && data) {
+        const blob = new Blob([data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${candidate?.fullname || 'candidate'}_CV.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        toast.success('CV downloaded successfully');
+        return;
+      }
 
-      const blob = new Blob([data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${candidate?.fullname || 'candidate'}_CV.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // 3. Fallback: signed URL
+      const { data: signedData } = await supabase.storage
+        .from('cv-uploads')
+        .createSignedUrl(cvFilePath, 60);
 
-      toast.success('CV downloaded successfully');
+      if (signedData?.signedUrl) {
+        window.open(signedData.signedUrl, '_blank');
+        toast.success('Opening CV download link');
+        return;
+      }
+
+      throw error || new Error('Failed to retrieve file');
     } catch (error) {
       console.error('Error downloading CV:', error);
-      toast.error('Failed to download CV');
+      // Last resort: open public URL directly in new tab
+      const { data } = supabase.storage.from('cv-uploads').getPublicUrl(cvFilePath);
+      if (data?.publicUrl) {
+        window.open(data.publicUrl, '_blank');
+        toast.info('Opened CV in new tab');
+      } else {
+        toast.error('Failed to download CV');
+      }
     } finally {
       setDownloadingCV(false);
     }

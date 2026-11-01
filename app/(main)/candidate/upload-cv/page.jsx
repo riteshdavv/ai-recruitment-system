@@ -12,6 +12,7 @@ import {
   Loader2,
   ArrowLeft,
   Download,
+  ExternalLink,
   Sparkles,
   Target,
   AlertCircle,
@@ -199,7 +200,7 @@ export default function UploadCV() {
       setAnalysis(data.analysis);
       if (data.text) setParsedText(data.text);
 
-      // Cache locally
+      // Cache parsed analysis locally so it's instantly available
       if (user?.id) {
         localStorage.setItem(
           `cv_analysis_${user.id}`,
@@ -209,18 +210,6 @@ export default function UploadCV() {
             jobRole: targetRole,
           })
         );
-
-        // Optionally persist to Supabase if columns exist
-        supabase
-          .from('users')
-          .update({
-            cv_parsed_data: data.analysis,
-            cv_score: data.analysis?.score || null,
-            cv_target_role: targetRole,
-          })
-          .eq('id', user.id)
-          .then(() => {})
-          .catch(() => {});
       }
 
       toast.success(`Resume scored: ${data.analysis?.score || 0}/100 match for ${targetRole}!`);
@@ -241,26 +230,102 @@ export default function UploadCV() {
     await runAiAnalysis(uploadedFile || null, user?.cv_file_path || null, jobRole.trim());
   };
 
-  const handleDownload = async () => {
+  // Open PDF in new tab for direct viewing
+  const handleView = () => {
     if (!user?.cv_file_path) return;
+    const { data } = supabase.storage
+      .from('cv-uploads')
+      .getPublicUrl(user.cv_file_path);
+    if (data?.publicUrl) {
+      window.open(data.publicUrl, '_blank');
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!user?.cv_file_path) {
+      toast.error('No CV found to download.');
+      return;
+    }
+
     try {
+      // 1. Try public URL fetch first
+      const { data: publicData } = supabase.storage
+        .from('cv-uploads')
+        .getPublicUrl(user.cv_file_path);
+
+      if (publicData?.publicUrl) {
+        try {
+          const res = await fetch(publicData.publicUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${user?.name || 'Candidate'}_Resume.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            toast.success('Resume downloaded successfully.');
+            return;
+          }
+        } catch (fetchErr) {
+          console.warn("Public fetch failed, trying signed URL:", fetchErr);
+        }
+      }
+
+      // 2. Try signed URL
+      const { data: signedData } = await supabase.storage
+        .from('cv-uploads')
+        .createSignedUrl(user.cv_file_path, 60);
+
+      if (signedData?.signedUrl) {
+        const res = await fetch(signedData.signedUrl);
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${user?.name || 'Candidate'}_Resume.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          toast.success('Resume downloaded successfully.');
+          return;
+        }
+      }
+
+      // 3. Fallback: storage.download()
       const { data, error } = await supabase.storage
         .from('cv-uploads')
         .download(user.cv_file_path);
 
-      if (error) throw error;
+      if (!error && data) {
+        const blob = new Blob([data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${user?.name || 'Candidate'}_Resume.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success('Resume downloaded successfully.');
+        return;
+      }
 
-      const blob = new Blob([data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'Resume.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch {
-      toast.error('Failed to download CV.');
+      throw error || new Error('Storage download returned no data');
+    } catch (err) {
+      console.error('Download error:', err);
+      // Last resort: open public URL directly in new tab
+      const { data } = supabase.storage.from('cv-uploads').getPublicUrl(user.cv_file_path);
+      if (data?.publicUrl) {
+        window.open(data.publicUrl, '_blank');
+        toast.info('Opened resume in a new tab.');
+      } else {
+        toast.error('Failed to download CV: ' + (err?.message || 'Storage error'));
+      }
     }
   };
 
@@ -279,8 +344,6 @@ export default function UploadCV() {
         .from('users')
         .update({
           cv_file_path: null,
-          cv_parsed_data: null,
-          cv_score: null,
         })
         .eq('id', user.id);
 
@@ -319,9 +382,6 @@ export default function UploadCV() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink flex items-center gap-2">
             Resume & AI Role Matcher
-            <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-sage-100 text-sage-800 border border-sage-200">
-              OpenRouter Free AI
-            </span>
           </h1>
           <p className="text-sm text-ink-muted mt-0.5">
             Upload your resume PDF to extract skills, view parsed content, and calculate an ATS score against your target role.
@@ -421,7 +481,16 @@ export default function UploadCV() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleView}
+                    className="text-xs h-9 border-line hover:bg-sage-100 text-ink flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    View PDF
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
