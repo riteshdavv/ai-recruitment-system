@@ -67,3 +67,9 @@ USING (bucket_id = 'avatars');
 CREATE POLICY "Allow public deletes on avatars"
 ON storage.objects FOR DELETE TO public
 USING (bucket_id = 'avatars');
+
+-- 6. Add columns to store parsed CV details and score on users table
+ALTER TABLE users 
+ADD COLUMN IF NOT EXISTS cv_parsed_data JSONB,
+ADD COLUMN IF NOT EXISTS cv_score INTEGER,
+ADD COLUMN IF NOT EXISTS cv_target_role TEXT;
