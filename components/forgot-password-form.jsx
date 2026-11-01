@@ -32,7 +32,13 @@ export function ForgotPasswordForm() {
       });
 
       if (error) {
-        toast.error(error.message || "Failed to send reset link.");
+        if (error.status === 429 || error.message?.toLowerCase().includes("rate limit")) {
+          toast.error("Email rate limit exceeded. Supabase default mailer limits emails to a few per hour. Please wait a few minutes before retrying.", {
+            duration: 6000,
+          });
+        } else {
+          toast.error(error.message || "Failed to send reset link.");
+        }
       } else {
         setSubmitted(true);
         toast.success("Password reset link sent! Check your inbox.");
