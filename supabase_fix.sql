@@ -72,4 +72,5 @@ USING (bucket_id = 'avatars');
 ALTER TABLE users 
 ADD COLUMN IF NOT EXISTS cv_parsed_data JSONB,
 ADD COLUMN IF NOT EXISTS cv_score INTEGER,
-ADD COLUMN IF NOT EXISTS cv_target_role TEXT;
+ADD COLUMN IF NOT EXISTS cv_target_role TEXT,
+ADD COLUMN IF NOT EXISTS cv_parsed_text TEXT;

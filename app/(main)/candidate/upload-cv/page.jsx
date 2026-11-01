@@ -77,21 +77,25 @@ export default function UploadCV() {
 
       setUser(userData);
 
-      // Restore saved parsed data from DB or localStorage
+      // Restore saved parsed data from Database
       if (userData?.cv_target_role) {
         setJobRole(userData.cv_target_role);
       }
 
       if (userData?.cv_parsed_data) {
         setAnalysis(userData.cv_parsed_data);
+      }
+
+      if (userData?.cv_parsed_text) {
+        setParsedText(userData.cv_parsed_text);
       } else {
         const cached = localStorage.getItem(`cv_analysis_${userData.id}`);
         if (cached) {
           try {
             const parsedCache = JSON.parse(cached);
-            setAnalysis(parsedCache.analysis);
+            if (!userData?.cv_parsed_data) setAnalysis(parsedCache.analysis);
             setParsedText(parsedCache.text || '');
-            if (parsedCache.jobRole) setJobRole(parsedCache.jobRole);
+            if (!userData?.cv_target_role && parsedCache.jobRole) setJobRole(parsedCache.jobRole);
           } catch (e) {
             console.error('Cache parse error:', e);
           }
@@ -200,8 +204,27 @@ export default function UploadCV() {
       setAnalysis(data.analysis);
       if (data.text) setParsedText(data.text);
 
-      // Cache parsed analysis locally so it's instantly available
+      // Persist to Supabase Database across all devices
       if (user?.id) {
+        try {
+          const { error: dbError } = await supabase
+            .from('users')
+            .update({
+              cv_parsed_data: data.analysis,
+              cv_score: data.analysis?.score || null,
+              cv_target_role: targetRole,
+              cv_parsed_text: data.text || null,
+            })
+            .eq('id', user.id);
+
+          if (dbError) {
+            console.warn('Database save warning (run supabase migration if columns missing):', dbError.message);
+          }
+        } catch (dbErr) {
+          console.warn('Database update catch:', dbErr);
+        }
+
+        // Also keep local cache as instant fallback
         localStorage.setItem(
           `cv_analysis_${user.id}`,
           JSON.stringify({
@@ -344,6 +367,10 @@ export default function UploadCV() {
         .from('users')
         .update({
           cv_file_path: null,
+          cv_parsed_data: null,
+          cv_score: null,
+          cv_target_role: null,
+          cv_parsed_text: null,
         })
         .eq('id', user.id);
 
