@@ -608,7 +608,7 @@ export default function UploadCV() {
       {/* AI Scoring Loading State */}
       {scoringLoading && (
         <Card className="bg-surface border-line shadow-card border-dashed">
-          <CardContent className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+          <CardContent className="py-12 flex flex-col items-center justify-center text-center space-y-6">
             <div className="relative">
               <div className="w-12 h-12 rounded-full bg-sage-100 flex items-center justify-center text-sage-700">
                 <Sparkles className="w-6 h-6 animate-pulse" />
@@ -666,7 +666,7 @@ export default function UploadCV() {
             <CardContent className="p-6 space-y-6">
               {/* Executive Summary */}
               {analysis.summary && (
-                <div className="space-y-1.5">
+                <div className="space-y-6">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                     Profile Summary
                   </h4>
