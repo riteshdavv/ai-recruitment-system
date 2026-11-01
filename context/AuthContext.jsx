@@ -172,7 +172,38 @@ export const AuthContextProvider = ({ children }) => {
     router.push("/login");
   };
 
+  // Reset password via email
+  const resetPassword = async (email, redirectTo) => {
+    try {
+      const redirect = redirectTo || `${window.location.origin}/reset-password`;
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
+        redirectTo: redirect,
+      });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error("Reset password error:", err);
+      return { success: false, error: "Unexpected error occurred." };
+    }
+  };
 
+  // Update password (for recovery or profile settings)
+  const updatePassword = async (newPassword) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.error("Update password error:", err);
+      return { success: false, error: "Unexpected error occurred." };
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -182,6 +213,8 @@ export const AuthContextProvider = ({ children }) => {
         signInUser,
         signUpNewUser,
         signOut,
+        resetPassword,
+        updatePassword,
       }}
     >
       {children}

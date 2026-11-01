@@ -95,6 +95,12 @@ export function LoginForm(props) {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password" className="text-xs font-medium text-ink">Password</Label>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-sage-700 hover:text-sage-800 hover:underline"
+            >
+              Forgot password?
+            </Link>
           </div>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted w-4 h-4" strokeWidth={1.75} />
