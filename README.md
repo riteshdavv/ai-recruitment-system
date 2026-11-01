@@ -261,6 +261,15 @@ CREATE TABLE IF NOT EXISTS interview_results (
 CREATE INDEX IF NOT EXISTS idx_interviews_user_email ON "Interviews"("userEmail");
 CREATE INDEX IF NOT EXISTS idx_interview_results_interview_id ON interview_results(interview_id);
 CREATE INDEX IF NOT EXISTS idx_interview_results_email ON interview_results(email);
+
+-- 5. Storage Buckets (cv-uploads & avatars)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('cv-uploads', 'cv-uploads', true), ('avatars', 'avatars', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Storage Policies
+CREATE POLICY "Allow public cv-uploads access" ON storage.objects FOR ALL TO public USING (bucket_id = 'cv-uploads') WITH CHECK (bucket_id = 'cv-uploads');
+CREATE POLICY "Allow public avatars access" ON storage.objects FOR ALL TO public USING (bucket_id = 'avatars') WITH CHECK (bucket_id = 'avatars');
 ```
 
 > [!TIP]

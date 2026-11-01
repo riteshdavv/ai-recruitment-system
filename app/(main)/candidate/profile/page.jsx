@@ -122,8 +122,8 @@ export default function CandidateProfile() {
       setProfileData(prev => ({ ...prev, picture: publicUrl }));
       toast.success('Profile picture updated successfully');
     } catch (error) {
-      console.error('Error uploading picture:', error);
-      toast.error('Failed to upload picture');
+      console.error('Error uploading picture:', error?.message || error);
+      toast.error(error?.message || 'Failed to upload picture');
     } finally {
       setSaving(false);
     }

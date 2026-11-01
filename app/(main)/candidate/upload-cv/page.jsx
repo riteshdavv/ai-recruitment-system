@@ -90,8 +90,9 @@ export default function UploadCV() {
       setUploadedFile(null);
       toast.success('Resume uploaded successfully.');
     } catch (error) {
-      console.error(error);
-      toast.error('Failed to upload resume.');
+      console.error("Resume upload error:", error?.message || error?.error || error);
+      const msg = error?.message || error?.error_description || error?.error || 'Failed to upload resume.';
+      toast.error(msg === 'Bucket not found' ? 'Storage bucket "cv-uploads" not found in Supabase.' : msg);
     } finally {
       setLoading(false);
     }
@@ -118,8 +119,8 @@ export default function UploadCV() {
       setUser({ ...user, cv_file_path: null });
       toast.success('Resume deleted.');
     } catch (error) {
-      console.error(error);
-      toast.error('Failed to delete resume.');
+      console.error("Resume delete error:", error?.message || error?.error || error);
+      toast.error(error?.message || 'Failed to delete resume.');
     } finally {
       setLoading(false);
     }
