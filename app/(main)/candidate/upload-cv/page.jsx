@@ -357,24 +357,37 @@ export default function UploadCV() {
 
     setLoading(true);
     try {
+      // 1. Remove file from storage
       const { error: deleteError } = await supabase.storage
         .from('cv-uploads')
         .remove([user.cv_file_path]);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.warn('Storage remove warning:', deleteError?.message || deleteError);
+      }
 
+      // 2. Always clear cv_file_path first (guaranteed column)
       const { error: updateError } = await supabase
         .from('users')
-        .update({
-          cv_file_path: null,
-          cv_parsed_data: null,
-          cv_score: null,
-          cv_target_role: null,
-          cv_parsed_text: null,
-        })
+        .update({ cv_file_path: null })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
+
+      // 3. Gracefully clear parsed columns if they exist in schema
+      try {
+        await supabase
+          .from('users')
+          .update({
+            cv_parsed_data: null,
+            cv_score: null,
+            cv_target_role: null,
+            cv_parsed_text: null,
+          })
+          .eq('id', user.id);
+      } catch {
+        // Ignored if columns haven't been added yet
+      }
 
       setUser((prev) => ({ ...prev, cv_file_path: null }));
       setAnalysis(null);
