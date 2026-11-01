@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PDFParse } from "pdf-parse";
+import { extractText } from "unpdf";
 import OpenAI from "openai";
 import { supabase } from "@/services/supabaseClient";
 
@@ -9,6 +9,44 @@ const MODELS_TO_TRY = [
   "liquid/lfm-2.5-2.6b:free",
   "nvidia/nemotron-3.5-lightning:free",
 ].filter(Boolean);
+
+// Safe helper to extract text from PDF buffer without external workers
+async function extractPdfText(buffer) {
+  try {
+    const uint8 = new Uint8Array(buffer);
+    const result = await extractText(uint8);
+    const text = Array.isArray(result?.text)
+      ? result.text.join("\n\n").trim()
+      : (result?.text || "").trim();
+
+    if (text && text.length >= 20) {
+      return text;
+    }
+  } catch (err) {
+    console.warn("unpdf text extraction error:", err?.message || err);
+  }
+
+  // Fallback: extract plain text streams if binary PDF has uncompressed text
+  try {
+    const rawString = Buffer.from(buffer).toString("latin1");
+    const textMatches = [];
+    const tjRegex = /\(([^()]{2,})\)\s*(?:Tj|'|")/g;
+    let match;
+    while ((match = tjRegex.exec(rawString)) !== null) {
+      const cleaned = match[1].replace(/\\([()\\])/g, "$1").trim();
+      if (cleaned.length > 2 && !/^[0-9\s.,-]+$/.test(cleaned)) {
+        textMatches.push(cleaned);
+      }
+    }
+    if (textMatches.length > 10) {
+      return textMatches.join(" ");
+    }
+  } catch (e) {
+    console.warn("Fallback text extraction failed:", e);
+  }
+
+  return "";
+}
 
 export async function POST(req) {
   try {
@@ -33,21 +71,10 @@ export async function POST(req) {
         );
       }
 
-      // Convert file to buffer and extract text
+      // Convert file to buffer and extract text via unpdf
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-
-      try {
-        const parser = new PDFParse({ data: buffer });
-        const result = await parser.getText();
-        resumeText = result?.text?.trim() || "";
-      } catch (parseErr) {
-        console.error("PDF parse error:", parseErr);
-        return NextResponse.json(
-          { error: "Failed to extract text from PDF. Ensure the PDF contains readable text." },
-          { status: 422 }
-        );
-      }
+      resumeText = await extractPdfText(buffer);
     } else {
       // JSON body: { text, jobRole, jobDescription, cvFilePath }
       const body = await req.json();
@@ -71,15 +98,13 @@ export async function POST(req) {
 
         const arrayBuffer = await fileData.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const parser = new PDFParse({ data: buffer });
-        const result = await parser.getText();
-        resumeText = result?.text?.trim() || "";
+        resumeText = await extractPdfText(buffer);
       }
     }
 
     if (!resumeText || resumeText.length < 20) {
       return NextResponse.json(
-        { error: "The uploaded PDF appears to be empty or contains scanned images without extractable text." },
+        { error: "Could not extract readable text from this PDF. Please ensure your PDF contains selectable text (not a scanned image)." },
         { status: 422 }
       );
     }
