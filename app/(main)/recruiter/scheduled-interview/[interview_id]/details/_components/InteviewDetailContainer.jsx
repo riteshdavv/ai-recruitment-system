@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/services/supabaseClient";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import InviteCandidatesDialog from "./InviteCandidatesDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,15 +75,18 @@ function InterviewDetailContainer({ interviewDetail }) {
             <span className="text-xs font-medium uppercase tracking-wider text-sage-700">Interview Specification</span>
             <h1 className="text-2xl font-semibold text-ink mt-0.5">{interviewDetail?.jobPosition}</h1>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDeleteAlert(true)}
-            className="text-danger border-line hover:bg-danger-soft hover:text-danger hover:border-danger/20 self-start sm:self-auto"
-          >
-            <Trash2 className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
-            Delete Interview
-          </Button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <InviteCandidatesDialog interviewDetail={interviewDetail} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteAlert(true)}
+              className="text-danger border-line hover:bg-danger-soft hover:text-danger hover:border-danger/20"
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" strokeWidth={1.75} />
+              Delete Interview
+            </Button>
+          </div>
         </div>
 
         {/* Metadata grid */}
