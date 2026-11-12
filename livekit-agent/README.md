@@ -11,8 +11,8 @@ This worker agent connects to your LiveKit Cloud or self-hosted room and acts as
 - **WebRTC Transport**: LiveKit (50GB free bandwidth/month on LiveKit Cloud)
 - **Voice Activity Detection (VAD)**: Silero VAD (Runs locally, zero latency)
 - **Speech-to-Text (STT)**: Deepgram Nova-2 ($200 free credit on signup)
-- **Language Model (LLM)**: Groq `llama-3.3-70b-versatile` (100% Free on console.groq.com)
-- **Text-to-Speech (TTS)**: Cartesia Sonic / Deepgram Aura
+- **Language Model (LLM)**: Groq `openai/gpt-oss-120b` (Sub-200ms ultra-fast reasoning on Groq LPUs)
+- **Text-to-Speech (TTS)**: Deepgram Aura (`aura-asteria-en`, instant expressive voice generation)
 
 ---
 
@@ -24,7 +24,7 @@ Go to [railway.app](https://railway.app) and sign up with GitHub.
 ### Step 2 — New Project
 1. Dashboard → **New Project** → **Deploy from GitHub repo**
 2. Select repo: `riteshdavv/ai-recruitment-system`
-3. Railway auto-detects `railway.json` in `livekit-agent/` — but you need to set the **Root Directory**:
+3. Railway auto-detects `railway.json` in `livekit-agent/` — set the **Root Directory**:
    - Go to **Settings** → **Source** → set **Root Directory** to `livekit-agent`
 4. Railway will use these settings from `railway.json`:
    - **Builder**: Nixpacks (auto-detects Python)
@@ -32,7 +32,7 @@ Go to [railway.app](https://railway.app) and sign up with GitHub.
    - **Restart Policy**: On failure (auto-restarts if it crashes)
 
 ### Step 3 — Add Environment Variables
-In the Railway service → **Variables** tab, add all 6 keys:
+In the Railway service → **Variables** tab, add the 5 keys:
 
 | Key | Where to get it |
 |-----|----------------|
@@ -41,7 +41,6 @@ In the Railway service → **Variables** tab, add all 6 keys:
 | `LIVEKIT_API_SECRET` | LiveKit Cloud → Settings → Keys |
 | `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) (free) |
 | `DEEPGRAM_API_KEY` | [console.deepgram.com](https://console.deepgram.com) ($200 free credit) |
-| `CARTESIA_API_KEY` | [play.cartesia.ai](https://play.cartesia.ai) (free tier) |
 
 ### Step 4 — Deploy
 Click **Deploy**. Railway builds and starts the agent.
@@ -67,7 +66,6 @@ LIVEKIT_API_SECRET=your_api_secret
 # AI Providers
 GROQ_API_KEY=gsk_your_groq_key
 DEEPGRAM_API_KEY=your_deepgram_key
-CARTESIA_API_KEY=your_cartesia_key
 ```
 
 #### 2. Install dependencies:

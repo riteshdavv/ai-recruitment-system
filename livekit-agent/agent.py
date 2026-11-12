@@ -3,7 +3,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, Agent, AgentSession
-from livekit.plugins import deepgram, groq, silero, cartesia
+from livekit.plugins import deepgram, groq, silero
 
 # Load .env from current or parent directory
 load_dotenv()
@@ -63,8 +63,8 @@ CONVERSATIONAL VOICE CONSTRAINTS:
     session = AgentSession(
         vad=vad,
         stt=deepgram.STT(model="nova-2", language="en"),
-        llm=groq.LLM(model="llama-3.3-70b-versatile"),
-        tts=cartesia.TTS(model="sonic-english", voice="47c38ca4-5f35-497b-b1a3-415245fb35e1"),
+        llm=groq.LLM(model="openai/gpt-oss-120b"),
+        tts=deepgram.TTS(model="aura-asteria-en"),
         # Wait at least 600ms after user stops speaking before the agent responds.
         # Prevents the agent from reacting to noise or partial utterances.
         min_endpointing_delay=0.6,
