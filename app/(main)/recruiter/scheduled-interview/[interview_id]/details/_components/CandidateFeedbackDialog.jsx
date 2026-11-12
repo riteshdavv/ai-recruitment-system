@@ -50,59 +50,62 @@ function CandidateFeedbackDialog({ candidate }) {
     candidate?.conversation_transcript?.summery ||
     "";
 
-  const summaryArray = Array.isArray(rawSummary)
-    ? rawSummary
-    : typeof rawSummary === "string" && rawSummary.trim()
-    ? rawSummary.split("\n").filter((line) => line.trim())
-    : recommendationMessage && recommendationMessage !== "No recommendation details provided."
-    ? [recommendationMessage]
-    : [];
-
   const ratings = Object.values(rating).filter((val) => typeof val === "number");
   const overallScore =
     ratings.length > 0 ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
 
-  // Robust recommendation status classification
-  const recText = (feedback?.Recommendation || candidate?.recommendations || "").toLowerCase().trim();
-  const recMsg = (recommendationMessage || "").toLowerCase();
+  // Score-driven recommendation classification (Score strictly dictates verdict)
+  let recommendationStatus;
+  let displayRecommendationTitle;
+  let finalRecommendationMessage;
 
-  const isExplicitlyNegative =
-    recText === "no" ||
-    recText === "no." ||
-    recText === "rejected" ||
-    recText === "not recommended" ||
-    recText.includes("not") ||
-    recText.includes("reject") ||
-    recText.includes("unsuccessful") ||
-    recMsg.includes("not recommended") ||
-    recMsg.includes("insufficient");
-
-  const isExplicitlyPositive =
-    recText === "yes" ||
-    recText === "yes." ||
-    recText === "recommended" ||
-    recText === "hire" ||
-    (recText.includes("recommend") && !recText.includes("not"));
-
-  let recommendationStatus = "review"; // "recommended" | "not_recommended" | "review"
-
-  if (overallScore === 0 || isExplicitlyNegative || overallScore < 6) {
-    recommendationStatus = "not_recommended";
-  } else if (overallScore >= 7 && (isExplicitlyPositive || !isExplicitlyNegative)) {
+  if (overallScore >= 7) {
     recommendationStatus = "recommended";
+    displayRecommendationTitle = "Recommended Candidate";
+    if (
+      !recommendationMessage ||
+      recommendationMessage === "No recommendation details provided." ||
+      recommendationMessage.toLowerCase().includes("not recommended") ||
+      recommendationMessage.toLowerCase().includes("insufficient") ||
+      recommendationMessage.toLowerCase().includes("minimal")
+    ) {
+      finalRecommendationMessage =
+        "Candidate demonstrated solid technical competencies, clear communication, and strong qualifications across evaluated domains.";
+    } else {
+      finalRecommendationMessage = recommendationMessage;
+    }
+  } else if (overallScore <= 4) {
+    recommendationStatus = "not_recommended";
+    displayRecommendationTitle = "Not Recommended";
+    if (
+      !recommendationMessage ||
+      recommendationMessage === "No recommendation details provided." ||
+      (recommendationMessage.toLowerCase().includes("recommended") && !recommendationMessage.toLowerCase().includes("not"))
+    ) {
+      finalRecommendationMessage =
+        "Candidate did not demonstrate sufficient technical depth or evidence to warrant advancing at this stage.";
+    } else {
+      finalRecommendationMessage = recommendationMessage;
+    }
   } else {
     recommendationStatus = "review";
+    displayRecommendationTitle = "Under Review / Follow-up Needed";
+    finalRecommendationMessage =
+      recommendationMessage && recommendationMessage !== "No recommendation details provided."
+        ? recommendationMessage
+        : "Moderate performance demonstrating partial competencies; recommended for a technical follow-up session.";
   }
 
   const isRecommended = recommendationStatus === "recommended";
   const isNotRecommended = recommendationStatus === "not_recommended";
 
-  const displayRecommendationTitle =
-    recommendationStatus === "recommended"
-      ? "Recommended Candidate"
-      : recommendationStatus === "not_recommended"
-      ? "Not Recommended"
-      : "Under Review / Follow-up Needed";
+  const summaryArray = Array.isArray(rawSummary)
+    ? rawSummary
+    : typeof rawSummary === "string" && rawSummary.trim()
+    ? rawSummary.split("\n").filter((line) => line.trim())
+    : finalRecommendationMessage
+    ? [finalRecommendationMessage]
+    : [];
 
   const transcriptList =
     candidate?.conversation_transcript?.transcript ||
@@ -462,7 +465,7 @@ Hiring Team`,
                       </h4>
                     </div>
                     <p className="text-xs sm:text-sm text-ink-muted mt-2 leading-relaxed">
-                      {recommendationMessage}
+                      {finalRecommendationMessage}
                     </p>
                   </div>
 
