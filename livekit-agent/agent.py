@@ -1,9 +1,8 @@
 import asyncio
 import os
 import logging
-import json
 from dotenv import load_dotenv
-from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm, Agent, AgentSession
+from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, Agent, AgentSession
 from livekit.plugins import deepgram, groq, silero, cartesia
 
 # Load .env from current or parent directory
@@ -50,31 +49,46 @@ CONVERSATIONAL VOICE CONSTRAINTS:
 - Cover 4 to 5 key competency domains across the interview, then conclude warmly.
 """.strip()
 
-    # Configure the Voice Pipeline Agent Session
-    # 1. Silero VAD: Instant interruption / barge-in handling
-    # 2. Deepgram STT: Real-time speech-to-text
-    # 3. Groq LLM: Sub-200ms ultra-fast reasoning with Llama 3.3 70B
-    # 4. Cartesia TTS: Real-time expressive voice generation
+    # Configure VAD conservatively to prevent ambient noise / early speech
+    # from triggering a turn before the greeting is delivered.
+    # - activation_threshold=0.6  : only trigger on clear speech (default is ~0.5)
+    # - min_speech_duration=0.2   : require 200ms of continuous speech (ignores blips)
+    # - min_silence_duration=0.8  : wait 800ms of silence before ending a turn (prevents cutting off)
+    vad = silero.VAD.load(
+        activation_threshold=0.6,
+        min_speech_duration=0.2,
+        min_silence_duration=0.8,
+    )
+
     session = AgentSession(
-        vad=silero.VAD.load(),
+        vad=vad,
         stt=deepgram.STT(model="nova-2", language="en"),
         llm=groq.LLM(model="llama-3.3-70b-versatile"),
         tts=cartesia.TTS(model="sonic-english", voice="47c38ca4-5f35-497b-b1a3-415245fb35e1"),
+        # Wait at least 600ms after user stops speaking before the agent responds.
+        # Prevents the agent from reacting to noise or partial utterances.
+        min_endpointing_delay=0.6,
     )
 
     agent = Agent(instructions=adaptive_prompt)
     await session.start(agent, room=ctx.room)
-    logger.info("AgentSession started — delivering greeting")
+    logger.info("AgentSession started")
 
-    # Introductory greeting — do NOT await session.say() at top level;
-    # it is internally scheduled by AgentSession after TTS pipeline is ready
+    # Give the pipeline 1 second to stabilize before accepting any user audio.
+    # This prevents ambient noise captured at session.start() from being
+    # treated as the candidate's first utterance.
+    await asyncio.sleep(1.0)
+
+    # Deliver greeting with interruptions disabled so early mic noise
+    # cannot cut off the greeting mid-sentence and jam the pipeline.
+    logger.info("Delivering greeting...")
     await session.say(
         f"Hello {candidate_name}. Welcome to your live technical interview. "
         "I'm looking forward to speaking with you today. When you're ready, let's begin: "
         "could you start by introducing yourself and sharing what you've been working on recently?",
-        allow_interruptions=True,
+        allow_interruptions=False,
     )
-    logger.info("Greeting delivered")
+    logger.info("Greeting delivered — interview is live")
 
 
 if __name__ == "__main__":
