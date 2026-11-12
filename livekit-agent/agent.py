@@ -1,5 +1,6 @@
 import asyncio
 import os
+import logging
 import json
 from dotenv import load_dotenv
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm, Agent, AgentSession
@@ -11,13 +12,21 @@ parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
 if os.path.exists(parent_env):
     load_dotenv(dotenv_path=parent_env)
 
+logger = logging.getLogger("recruitai-agent")
+logging.basicConfig(level=logging.INFO)
+
+
 async def entrypoint(ctx: JobContext):
-    # Connect to room and listen to participant audio
+    logger.info(f"Agent job received for room: {ctx.room.name}")
+
+    # Connect to room and subscribe to all participant tracks
     await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
+    logger.info("Connected to LiveKit room")
 
     # Wait for the candidate participant to join
     participant = await ctx.wait_for_participant()
     candidate_name = participant.name or "Candidate"
+    logger.info(f"Candidate joined: {candidate_name} ({participant.identity})")
 
     # Dynamic Adaptive Interviewer instructions
     adaptive_prompt = f"""
@@ -55,12 +64,18 @@ CONVERSATIONAL VOICE CONSTRAINTS:
 
     agent = Agent(instructions=adaptive_prompt)
     await session.start(agent, room=ctx.room)
+    logger.info("AgentSession started — delivering greeting")
 
-    # Introductory greeting
+    # Introductory greeting — do NOT await session.say() at top level;
+    # it is internally scheduled by AgentSession after TTS pipeline is ready
     await session.say(
-        f"Hello {candidate_name}. Welcome to your live technical interview. I'm looking forward to speaking with you today. When you're ready, let's begin: could you start by introducing yourself and sharing what you've been working on recently?",
+        f"Hello {candidate_name}. Welcome to your live technical interview. "
+        "I'm looking forward to speaking with you today. When you're ready, let's begin: "
+        "could you start by introducing yourself and sharing what you've been working on recently?",
         allow_interruptions=True,
     )
+    logger.info("Greeting delivered")
+
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))

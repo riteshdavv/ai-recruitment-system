@@ -92,10 +92,25 @@ function StartInterview() {
         setStart(true);
       });
 
-      room.on(RoomEvent.TrackSubscribed, (track) => {
+      room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
         if (track.kind === Track.Kind.Audio) {
           const audioElement = track.attach();
+          audioElement.id = `audio-${participant?.identity || "agent"}`;
+          audioElement.autoplay = true;
+          audioElement.setAttribute("playsinline", "true");
           document.body.appendChild(audioElement);
+          // Explicitly call play() to bypass browser autoplay policy
+          audioElement.play().catch((err) => {
+            console.warn("Audio autoplay blocked, retrying on user gesture:", err);
+            // Retry on next user interaction
+            const retry = () => {
+              audioElement.play().catch(() => {});
+              document.removeEventListener("click", retry);
+              document.removeEventListener("touchstart", retry);
+            };
+            document.addEventListener("click", retry, { once: true });
+            document.addEventListener("touchstart", retry, { once: true });
+          });
         }
       });
 
@@ -108,14 +123,15 @@ function StartInterview() {
 
       // Primary transcript path: livekit-agents Python SDK sends TranscriptionReceived
       room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
-        const text = segments
-          .map((s) => s.text)
-          .join(" ")
-          .trim();
-        if (text) {
-          setSubtitles(text);
-          const isLocal = participant?.identity === room.localParticipant?.identity;
-          const role = isLocal ? "user" : "assistant";
+        // Filter to final-only segments (non-final are live partials that will be replaced)
+        const finalSegments = segments.filter((s) => s.final !== false);
+        const text = finalSegments.map((s) => s.text).join(" ").trim();
+        if (!text) return;
+        setSubtitles(text);
+        const isLocal = participant?.identity === room.localParticipant?.identity;
+        const role = isLocal ? "user" : "assistant";
+        const last = conversation.current[conversation.current.length - 1];
+        if (!last || last.content !== text) {
           conversation.current = [...conversation.current, { role, content: text }];
         }
       });
