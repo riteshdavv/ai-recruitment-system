@@ -2,6 +2,9 @@
 
 This worker agent connects to your LiveKit Cloud or self-hosted room and acts as the **Executive AI Voice Interviewer** with sub-500ms voice latency, real-time Silero VAD (instant interruption/barge-in), and adaptive questioning.
 
+> ⚠️ **This agent must be deployed as a persistent background service — it cannot run on Vercel.**
+> Deploy it on [Render.com](https://render.com) (free) or [Fly.io](https://fly.io) (free).
+
 ---
 
 ### Architecture
@@ -13,7 +16,44 @@ This worker agent connects to your LiveKit Cloud or self-hosted room and acts as
 
 ---
 
-### Quick Setup (2 Minutes)
+## 🚀 Deploy on Render.com (Free)
+
+### Step 1 — Create a Render account
+Go to [render.com](https://render.com) and sign up (GitHub login recommended).
+
+### Step 2 — New Background Worker
+1. Dashboard → **New +** → **Background Worker**
+2. Connect your GitHub repo: `riteshdavv/ai-recruitment-system`
+3. Set **Root Directory** to: `livekit-agent`
+4. Render auto-detects the `render.yaml` — confirm these settings:
+   - **Runtime**: Python 3
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `python agent.py start`
+
+### Step 3 — Add Environment Variables
+In the Render service **Environment** tab, add all 6 variables:
+
+| Key | Where to get it |
+|-----|----------------|
+| `LIVEKIT_URL` | [cloud.livekit.io](https://cloud.livekit.io) → your project → `wss://...` |
+| `LIVEKIT_API_KEY` | LiveKit Cloud → Settings → Keys |
+| `LIVEKIT_API_SECRET` | LiveKit Cloud → Settings → Keys |
+| `GROQ_API_KEY` | [console.groq.com](https://console.groq.com) (free) |
+| `DEEPGRAM_API_KEY` | [console.deepgram.com](https://console.deepgram.com) ($200 free credit) |
+| `CARTESIA_API_KEY` | [play.cartesia.ai](https://play.cartesia.ai) (free tier) |
+
+### Step 4 — Deploy
+Click **Create Background Worker**. Render builds and starts the agent.
+Once you see `Agent started. Waiting for jobs...` in the logs — it's live. ✅
+
+### Step 5 — Verify it works
+1. Open your deployed Next.js app on Vercel
+2. Start an interview as a candidate
+3. Watch Render logs — you should see: `Job received for room: interview_<id>`
+
+---
+
+## 🧪 Local Development
 
 #### 1. Configure `.env` in the root project directory:
 ```env
@@ -32,13 +72,20 @@ CARTESIA_API_KEY=your_cartesia_key
 #### 2. Install dependencies:
 ```bash
 cd livekit-agent
-pip3 install -r requirements.txt
+python3 -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-#### 3. Run the Agent:
+#### 3. Run locally (dev mode with auto-reload):
 ```bash
-python3 agent.py dev
+python agent.py dev
 ```
 
-That's it! The agent will automatically listen for candidates joining any interview room and start the dynamic adaptive voice session with ultra-low latency.
+#### 4. Run in production mode (same as Render):
+```bash
+python agent.py start
+```
+
+That's it! The agent listens for candidates joining any `interview_*` room and starts the dynamic adaptive voice session automatically.
 
