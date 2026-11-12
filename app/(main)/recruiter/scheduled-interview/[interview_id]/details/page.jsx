@@ -3,7 +3,7 @@ import { supabase } from "@/services/supabaseClient";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/app/provider";
-import InterviewDetailContainer from "./_components/InteviewDetailContainer";
+import InterviewDetailContainer from "./_components/InterviewDetailContainer";
 import CandidateList from "./_components/CandidateList";
 
 function InterviewDetail() {

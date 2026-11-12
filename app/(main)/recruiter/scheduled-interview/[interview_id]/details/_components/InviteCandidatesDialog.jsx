@@ -213,3 +213,4 @@ export default function InviteCandidatesDialog({ interviewDetail, triggerButton 
     </Dialog>
   );
 }
+
