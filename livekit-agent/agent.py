@@ -13,7 +13,7 @@ if os.path.exists(parent_env):
 
 async def entrypoint(ctx: JobContext):
     # Connect to room and listen to participant audio
-    ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
+    await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
 
     # Wait for the candidate participant to join
     participant = await ctx.wait_for_participant()
@@ -57,7 +57,7 @@ CONVERSATIONAL VOICE CONSTRAINTS:
     await session.start(agent, room=ctx.room)
 
     # Introductory greeting
-    session.say(
+    await session.say(
         f"Hello {candidate_name}. Welcome to your live technical interview. I'm looking forward to speaking with you today. When you're ready, let's begin: could you start by introducing yourself and sharing what you've been working on recently?",
         allow_interruptions=True,
     )

@@ -106,6 +106,21 @@ function StartInterview() {
         setActiveUser(isUser);
       });
 
+      // Primary transcript path: livekit-agents Python SDK sends TranscriptionReceived
+      room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
+        const text = segments
+          .map((s) => s.text)
+          .join(" ")
+          .trim();
+        if (text) {
+          setSubtitles(text);
+          const isLocal = participant?.identity === room.localParticipant?.identity;
+          const role = isLocal ? "user" : "assistant";
+          conversation.current = [...conversation.current, { role, content: text }];
+        }
+      });
+
+      // Fallback transcript path: raw JSON data messages (older agent versions)
       room.on(RoomEvent.DataReceived, (payload) => {
         try {
           const str = new TextDecoder().decode(payload);
@@ -115,6 +130,13 @@ function StartInterview() {
             conversation.current = [...conversation.current, { role: data.role || "assistant", content: data.text }];
           }
         } catch {}
+      });
+
+      // Detect when the Python agent joins the room
+      room.on(RoomEvent.ParticipantConnected, (participant) => {
+        if (participant.identity !== room.localParticipant.identity) {
+          setSubtitles("Agent connected. Starting interview...");
+        }
       });
 
       room.on(RoomEvent.Disconnected, () => {
@@ -597,7 +619,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
             <div className="p-4 rounded-md bg-surface-alt border border-line min-h-[90px] flex items-center justify-center">
               {subtitles ? (
                 <p className="text-[15px] text-ink leading-relaxed font-normal text-center">
-                  "{subtitles}"
+                  {subtitles}
                 </p>
               ) : (
                 <p className="text-sm text-ink-subtle text-center italic">
