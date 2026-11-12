@@ -85,7 +85,7 @@ export default function InviteCandidatesDialog({ interviewDetail, triggerButton 
         )}
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="sm:max-w-[520px] w-full max-w-[95vw] overflow-hidden p-5 sm:p-6">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-8 h-8 rounded-md bg-sage-100 text-sage-800 flex items-center justify-center">
@@ -101,10 +101,10 @@ export default function InviteCandidatesDialog({ interviewDetail, triggerButton 
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSendInvites} className="space-y-4 py-2">
+        <form onSubmit={handleSendInvites} className="space-y-4 py-2 w-full max-w-full min-w-0">
           {/* Quick link copy bar */}
-          <div className="p-3 bg-surface-alt rounded-md border border-line flex items-center justify-between gap-2 text-xs">
-            <span className="font-mono text-ink-muted truncate max-w-[320px]">{interviewUrl}</span>
+          <div className="p-3 bg-surface-alt rounded-md border border-line flex items-center justify-between gap-2 text-xs min-w-0">
+            <span className="font-mono text-ink-muted truncate block min-w-0 flex-1">{interviewUrl}</span>
             <Button
               type="button"
               variant="outline"
@@ -146,7 +146,7 @@ export default function InviteCandidatesDialog({ interviewDetail, triggerButton 
 
           {/* Delivery result preview */}
           {sentSummary && (
-            <div className="p-3.5 rounded-md bg-sage-50 border border-sage-200 text-xs space-y-2">
+            <div className="p-3.5 rounded-md bg-sage-50 border border-sage-200 text-xs space-y-2 min-w-0 overflow-hidden">
               <div className="flex items-center justify-between font-semibold text-sage-900">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="size-4 text-success" />
@@ -158,9 +158,9 @@ export default function InviteCandidatesDialog({ interviewDetail, triggerButton 
               </div>
 
               {sentSummary.previewUrls && sentSummary.previewUrls.length > 0 && (
-                <div className="pt-2 border-t border-sage-200/60 space-y-1">
+                <div className="pt-2 border-t border-sage-200/60 space-y-1.5 min-w-0">
                   <span className="text-[11px] font-semibold text-sage-800 block">
-                    Demo Email Previews (Click to view):
+                    Demo Mode Previews (SMTP not configured on Vercel):
                   </span>
                   {sentSummary.previewUrls.map((p, idx) => (
                     <a
@@ -168,10 +168,10 @@ export default function InviteCandidatesDialog({ interviewDetail, triggerButton 
                       href={p.previewUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-1.5 text-[11px] text-sage-700 hover:text-sage-900 underline truncate"
+                      className="inline-flex items-center gap-1.5 text-[11px] text-sage-700 hover:text-sage-900 underline font-medium truncate max-w-full"
                     >
                       <ExternalLink className="size-3 shrink-0" />
-                      Preview {p.email}: {p.previewUrl}
+                      <span className="truncate">Preview test email sent to {p.email} &rarr;</span>
                     </a>
                   ))}
                 </div>

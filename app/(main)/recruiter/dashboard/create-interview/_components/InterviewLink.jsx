@@ -185,25 +185,25 @@ const InterviewLink = ({ interview_id, formData }) => {
               </span>
             </div>
 
-            {sentSummary.previewUrls && sentSummary.previewUrls.length > 0 && (
-              <div className="pt-2 border-t border-sage-200/60 space-y-1">
-                <span className="text-[11px] font-semibold text-sage-800 block">
-                  Demo Email Previews (Click to view rendered email):
-                </span>
-                {sentSummary.previewUrls.map((p, idx) => (
-                  <a
-                    key={idx}
-                    href={p.previewUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 text-[11px] text-sage-700 hover:text-sage-900 underline truncate"
-                  >
-                    <ExternalLink className="size-3 shrink-0" />
-                    Preview {p.email}: {p.previewUrl}
-                  </a>
-                ))}
-              </div>
-            )}
+              {sentSummary.previewUrls && sentSummary.previewUrls.length > 0 && (
+                <div className="pt-2 border-t border-sage-200/60 space-y-1.5 min-w-0">
+                  <span className="text-[11px] font-semibold text-sage-800 block">
+                    Demo Mode Previews (SMTP not configured on Vercel):
+                  </span>
+                  {sentSummary.previewUrls.map((p, idx) => (
+                    <a
+                      key={idx}
+                      href={p.previewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[11px] text-sage-700 hover:text-sage-900 underline font-medium truncate max-w-full"
+                    >
+                      <ExternalLink className="size-3 shrink-0" />
+                      <span className="truncate">Preview test email sent to {p.email} &rarr;</span>
+                    </a>
+                  ))}
+                </div>
+              )}
           </div>
         )}
       </div>
