@@ -49,15 +49,14 @@ CONVERSATIONAL VOICE CONSTRAINTS:
 - Cover 4 to 5 key competency domains across the interview, then conclude warmly.
 """.strip()
 
-    # Configure VAD conservatively to prevent ambient noise / early speech
-    # from triggering a turn before the greeting is delivered.
-    # - activation_threshold=0.6  : only trigger on clear speech (default is ~0.5)
-    # - min_speech_duration=0.2   : require 200ms of continuous speech (ignores blips)
-    # - min_silence_duration=0.8  : wait 800ms of silence before ending a turn (prevents cutting off)
+    # Configure VAD to naturally capture fluent speech without cutting off thinking pauses:
+    # - activation_threshold=0.45 : detects natural, fluent speech accurately without missing quiet words
+    # - min_speech_duration=0.15  : requires 150ms of audio to trigger speech
+    # - min_silence_duration=1.4  : allows candidate 1.4s of breathing/thinking pause before VAD marks silence
     vad = silero.VAD.load(
-        activation_threshold=0.6,
-        min_speech_duration=0.2,
-        min_silence_duration=0.8,
+        activation_threshold=0.45,
+        min_speech_duration=0.15,
+        min_silence_duration=1.4,
     )
 
     session = AgentSession(
@@ -67,8 +66,9 @@ CONVERSATIONAL VOICE CONSTRAINTS:
         tts=deepgram.TTS(model="aura-asteria-en"),
         # Start with interruptions disabled for the introductory questions
         allow_interruptions=False,
-        # Wait at least 600ms after user stops speaking before the agent responds
-        min_endpointing_delay=0.6,
+        # Give candidate ample time to think: wait 1.6s of silence after speech stops before responding
+        min_endpointing_delay=1.6,
+        max_endpointing_delay=3.5,
     )
 
     # Track user turns so VAD interruptions (barge-in) are enabled only after 1-2 initial questions

@@ -105,50 +105,42 @@ format: interviewQuestions=[
 
 🎯 The goal is to create a structured, relevant, and time-optimized interview plan for a {{jobPosition}} role.`
 
-export const FEEDBACK_PROMPT=`{{conversation}}
+export const FEEDBACK_PROMPT = `You are an expert technical hiring manager evaluating an interview conversation.
+Analyze this interview conversation between the AI Interviewer (assistant) and the Candidate (user):
+{{conversation}}
 
-Depends on this Interview Conversation between assitant and user, 
+CRITICAL EVALUATION & RATING CALIBRATION RULES:
+1. If the candidate answers minimally, gives only greetings, or answers less than 2 questions:
+   - Every competency rating must be 0 to 2 out of 10.
+   - Recommendation MUST be "Not Recommended".
+   - RecommendationMessage MUST state clearly that candidate provided insufficient responses to evaluate competencies.
+   - summary MUST detail in 3 to 4 sentences that the interaction was too brief or incomplete.
+2. If the candidate answered technical questions well (overall average >= 7):
+   - Ratings should accurately reflect their technical depth (7-10/10).
+   - Recommendation MUST be "Recommended".
+   - RecommendationMessage MUST state their clear technical strengths and alignment with the role.
+   - summary MUST detail in 3 to 4 sentences their technical depth, practical examples, and communication clarity.
+3. If the candidate had mixed or borderline performance (overall average 4 to 6):
+   - Ratings must reflect partial competence (4-6/10).
+   - Recommendation MUST be "Follow-up Required".
+   - RecommendationMessage MUST state specific areas requiring follow-up assessment.
+   - summary MUST summarize strengths vs areas needing further probing.
 
-Give me feedback for user interview. Give me rating out of 10 for technical Skills, 
-
-Communication, Problem Solving, Experience. Also give me summery in 3 lines 
-
-about the interview and one line to let me know whether is recommended 
-
-for hire or not with message very strictly. Give me response in JSON format
-
+Respond strictly with a valid JSON object matching this schema:
 {
-
-    feedback:{
-
-        rating:{
-
-            TechnicalSkills:5,
-
-            Communication:6,
-
-            ProblemSolving:4,
-
-            Experience:7,
-
-            Behavioral:8,
-
-            Analysis:9
-
-
-
-        },
-
-        summery:<in 3 Line>,
-
-        Recommendation:'',
-
-        Recommendation Message:''
-
-
-
-    }
-
+  "feedback": {
+    "rating": {
+      "TechnicalSkills": 7,
+      "Communication": 7,
+      "ProblemSolving": 6,
+      "Experience": 7,
+      "Behavioral": 7,
+      "Analysis": 7
+    },
+    "summary": "3 to 4 sentences analyzing candidate responses, technical depth, and overall performance.",
+    "summery": "Same 3 to 4 sentences for backward compatibility.",
+    "Recommendation": "Recommended",
+    "RecommendationMessage": "One concise line summarizing hiring verdict."
+  }
 }
-
-`
+`;

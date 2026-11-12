@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/services/supabaseClient";
 import { toast } from "sonner";
-import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail } from "lucide-react";
+import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail, XCircle, MessageSquare } from "lucide-react";
 import Image from "next/image";
 import CandidateDecisionEmailDialog from "./CandidateDecisionEmailDialog";
 
@@ -38,19 +38,77 @@ function CandidateFeedbackDialog({ candidate }) {
     feedback?.["Recommendation Message"] ||
     "No recommendation details provided.";
 
-  const summaryText = feedback?.summery || feedback?.summary || "";
-  const summaryArray = Array.isArray(summaryText)
-    ? summaryText
-    : typeof summaryText === "string"
-    ? summaryText.split("\n").filter((line) => line.trim())
+  const rawSummary =
+    feedback?.summary ||
+    feedback?.summery ||
+    feedback?.Summary ||
+    feedback?.Summery ||
+    feedback?.synthesis ||
+    feedback?.observations ||
+    feedback?.overview ||
+    candidate?.conversation_transcript?.summary ||
+    candidate?.conversation_transcript?.summery ||
+    "";
+
+  const summaryArray = Array.isArray(rawSummary)
+    ? rawSummary
+    : typeof rawSummary === "string" && rawSummary.trim()
+    ? rawSummary.split("\n").filter((line) => line.trim())
+    : recommendationMessage && recommendationMessage !== "No recommendation details provided."
+    ? [recommendationMessage]
     : [];
 
   const ratings = Object.values(rating).filter((val) => typeof val === "number");
   const overallScore =
     ratings.length > 0 ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
 
-  const isRecommended =
-    !feedback?.Recommendation?.toLowerCase().includes("not");
+  // Robust recommendation status classification
+  const recText = (feedback?.Recommendation || candidate?.recommendations || "").toLowerCase().trim();
+  const recMsg = (recommendationMessage || "").toLowerCase();
+
+  const isExplicitlyNegative =
+    recText === "no" ||
+    recText === "no." ||
+    recText === "rejected" ||
+    recText === "not recommended" ||
+    recText.includes("not") ||
+    recText.includes("reject") ||
+    recText.includes("unsuccessful") ||
+    recMsg.includes("not recommended") ||
+    recMsg.includes("insufficient");
+
+  const isExplicitlyPositive =
+    recText === "yes" ||
+    recText === "yes." ||
+    recText === "recommended" ||
+    recText === "hire" ||
+    (recText.includes("recommend") && !recText.includes("not"));
+
+  let recommendationStatus = "review"; // "recommended" | "not_recommended" | "review"
+
+  if (overallScore === 0 || isExplicitlyNegative || overallScore < 6) {
+    recommendationStatus = "not_recommended";
+  } else if (overallScore >= 7 && (isExplicitlyPositive || !isExplicitlyNegative)) {
+    recommendationStatus = "recommended";
+  } else {
+    recommendationStatus = "review";
+  }
+
+  const isRecommended = recommendationStatus === "recommended";
+  const isNotRecommended = recommendationStatus === "not_recommended";
+
+  const displayRecommendationTitle =
+    recommendationStatus === "recommended"
+      ? "Recommended Candidate"
+      : recommendationStatus === "not_recommended"
+      ? "Not Recommended"
+      : "Under Review / Follow-up Needed";
+
+  const transcriptList =
+    candidate?.conversation_transcript?.transcript ||
+    candidate?.conversation_transcript?.conversation ||
+    candidate?.conversation_transcript?.dialogue ||
+    [];
 
   const getQualitativeFeedback = (score) => {
     if (score >= 8) return "Strong";
@@ -335,24 +393,72 @@ Hiring Team`,
                 </div>
               </div>
 
+              {/* Full Interview Dialogue Transcript */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2 flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-sage-700" />
+                  Interview Dialogue Transcript {transcriptList.length > 0 && `(${transcriptList.length} turns)`}
+                </h4>
+                <div className="max-h-72 overflow-y-auto space-y-3 p-4 rounded-lg bg-surface border border-line">
+                  {transcriptList.length > 0 ? (
+                    transcriptList.map((turn, i) => (
+                      <div
+                        key={i}
+                        className={`flex flex-col ${
+                          turn.role === "user" ? "items-end" : "items-start"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono text-ink-muted">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              turn.role === "user" ? "bg-sage-600" : "bg-ink-muted"
+                            }`}
+                          />
+                          <span>
+                            {turn.role === "user" ? candidate?.fullname || "Candidate" : "AI Interviewer"}
+                          </span>
+                        </div>
+                        <div
+                          className={`p-3 rounded-lg text-xs leading-relaxed max-w-[85%] ${
+                            turn.role === "user"
+                              ? "bg-sage-100 text-ink border border-sage-200"
+                              : "bg-surface-alt text-ink border border-line"
+                          }`}
+                        >
+                          {turn.content}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-ink-muted italic text-center py-4">
+                      Detailed dialogue transcript was not recorded for this legacy session.
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {/* Recommendation Block & Actions */}
               <div
                 className={`p-4 sm:p-5 rounded-lg border ${
-                  isRecommended
-                    ? "bg-success-soft border-success/20 text-ink"
-                    : "bg-warning-soft border-warning/20 text-ink"
+                  recommendationStatus === "recommended"
+                    ? "bg-success-soft border-success/30 text-ink"
+                    : recommendationStatus === "not_recommended"
+                    ? "bg-danger-soft border-danger/30 text-ink"
+                    : "bg-warning-soft border-warning/30 text-ink"
                 }`}
               >
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      {isRecommended ? (
+                      {recommendationStatus === "recommended" ? (
                         <CheckCircle className="w-5 h-5 text-success shrink-0" strokeWidth={1.75} />
+                      ) : recommendationStatus === "not_recommended" ? (
+                        <XCircle className="w-5 h-5 text-danger shrink-0" strokeWidth={1.75} />
                       ) : (
                         <AlertTriangle className="w-5 h-5 text-warning shrink-0" strokeWidth={1.75} />
                       )}
                       <h4 className="font-semibold text-base text-ink">
-                        {feedback?.Recommendation || (isRecommended ? "Recommended Candidate" : "Flagged for Human Review")}
+                        {displayRecommendationTitle}
                       </h4>
                     </div>
                     <p className="text-xs sm:text-sm text-ink-muted mt-2 leading-relaxed">

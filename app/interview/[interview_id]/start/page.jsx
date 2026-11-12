@@ -123,16 +123,31 @@ function StartInterview() {
 
       // Primary transcript path: livekit-agents Python SDK sends TranscriptionReceived
       room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
-        // Filter to final-only segments (non-final are live partials that will be replaced)
+        // 1. Live real-time subtitle display (shows partials immediately with 0ms lag)
+        const liveText = segments.map((s) => s.text).join(" ").trim();
+        if (liveText) {
+          setSubtitles(liveText);
+        }
+
+        // 2. Commit finalized segments to interview dialogue history
         const finalSegments = segments.filter((s) => s.final !== false);
-        const text = finalSegments.map((s) => s.text).join(" ").trim();
-        if (!text) return;
-        setSubtitles(text);
+        const finalText = finalSegments.map((s) => s.text).join(" ").trim();
+        if (!finalText) return;
+
         const isLocal = participant?.identity === room.localParticipant?.identity;
         const role = isLocal ? "user" : "assistant";
-        const last = conversation.current[conversation.current.length - 1];
-        if (!last || last.content !== text) {
-          conversation.current = [...conversation.current, { role, content: text }];
+        const conv = conversation.current;
+        const last = conv[conv.length - 1];
+
+        // Merge consecutive segments from same speaker to prevent turn fragmentation
+        if (last && last.role === role) {
+          if (finalText.length >= last.content.length) {
+            last.content = finalText;
+          } else if (!last.content.includes(finalText)) {
+            last.content = `${last.content} ${finalText}`.trim();
+          }
+        } else {
+          conversation.current = [...conv, { role, content: finalText }];
         }
       });
 
@@ -477,6 +492,11 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
         throw new Error("Could not parse AI evaluation JSON");
       }
 
+      const fullRecord = {
+        ...parsedTranscript,
+        transcript: conversation.current || [],
+      };
+
       const { error: insertError } = await supabase
         .from("interview_results")
         .insert([
@@ -484,7 +504,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
             fullname: interviewInfo?.candidate_name,
             email: interviewInfo?.userEmail,
             interview_id: interview_id,
-            conversation_transcript: parsedTranscript,
+            conversation_transcript: fullRecord,
             recommendations: parsedTranscript?.feedback?.Recommendation || "Completed",
             completed_at: new Date().toISOString(),
           },
