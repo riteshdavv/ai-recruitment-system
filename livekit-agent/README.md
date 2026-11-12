@@ -3,7 +3,7 @@
 This worker agent connects to your LiveKit Cloud or self-hosted room and acts as the **Executive AI Voice Interviewer** with sub-500ms voice latency, real-time Silero VAD (instant interruption/barge-in), and adaptive questioning.
 
 > ⚠️ **This agent must be deployed as a persistent background service — it cannot run on Vercel.**
-> Deploy it on [Render.com](https://render.com) (free) or [Fly.io](https://fly.io) (free).
+> Deploy it on [Railway.app](https://railway.app).
 
 ---
 
@@ -16,22 +16,23 @@ This worker agent connects to your LiveKit Cloud or self-hosted room and acts as
 
 ---
 
-## 🚀 Deploy on Render.com (Free)
+## 🚀 Deploy on Railway.app
 
-### Step 1 — Create a Render account
-Go to [render.com](https://render.com) and sign up (GitHub login recommended).
+### Step 1 — Create a Railway account
+Go to [railway.app](https://railway.app) and sign up with GitHub.
 
-### Step 2 — New Background Worker
-1. Dashboard → **New +** → **Background Worker**
-2. Connect your GitHub repo: `riteshdavv/ai-recruitment-system`
-3. Set **Root Directory** to: `livekit-agent`
-4. Render auto-detects the `render.yaml` — confirm these settings:
-   - **Runtime**: Python 3
-   - **Build Command**: `pip install -r requirements.txt`
+### Step 2 — New Project
+1. Dashboard → **New Project** → **Deploy from GitHub repo**
+2. Select repo: `riteshdavv/ai-recruitment-system`
+3. Railway auto-detects `railway.json` in `livekit-agent/` — but you need to set the **Root Directory**:
+   - Go to **Settings** → **Source** → set **Root Directory** to `livekit-agent`
+4. Railway will use these settings from `railway.json`:
+   - **Builder**: Nixpacks (auto-detects Python)
    - **Start Command**: `python agent.py start`
+   - **Restart Policy**: On failure (auto-restarts if it crashes)
 
 ### Step 3 — Add Environment Variables
-In the Render service **Environment** tab, add all 6 variables:
+In the Railway service → **Variables** tab, add all 6 keys:
 
 | Key | Where to get it |
 |-----|----------------|
@@ -43,13 +44,13 @@ In the Render service **Environment** tab, add all 6 variables:
 | `CARTESIA_API_KEY` | [play.cartesia.ai](https://play.cartesia.ai) (free tier) |
 
 ### Step 4 — Deploy
-Click **Create Background Worker**. Render builds and starts the agent.
+Click **Deploy**. Railway builds and starts the agent.
 Once you see `Agent started. Waiting for jobs...` in the logs — it's live. ✅
 
 ### Step 5 — Verify it works
 1. Open your deployed Next.js app on Vercel
 2. Start an interview as a candidate
-3. Watch Render logs — you should see: `Job received for room: interview_<id>`
+3. Watch Railway logs — you should see: `Job received for room: interview_<id>`
 
 ---
 
