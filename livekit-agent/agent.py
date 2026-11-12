@@ -50,7 +50,7 @@ CONVERSATIONAL VOICE CONSTRAINTS:
         vad=silero.VAD.load(),
         stt=deepgram.STT(model="nova-2", language="en"),
         llm=groq.LLM(model="llama-3.3-70b-versatile"),
-        tts=cartesia.TTS(model="sonic-english", voice="79a125e8-cd45-4c13-8a67-188112f4dd22"),
+        tts=cartesia.TTS(model="sonic-english", voice="47c38ca4-5f35-497b-b1a3-415245fb35e1"),
     )
 
     agent = Agent(instructions=adaptive_prompt)

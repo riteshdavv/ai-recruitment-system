@@ -263,9 +263,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
     utterance.pitch = 1.0;
 
     const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find(
-      (v) => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha") || v.name.includes("Karen"))
-    ) || voices.find((v) => v.lang.startsWith("en"));
+    const naturalVoice = voices.find((v) => v.lang === "en-US") || voices.find((v) => v.lang.startsWith("en"));
     if (naturalVoice) utterance.voice = naturalVoice;
 
     utterance.onstart = () => {
