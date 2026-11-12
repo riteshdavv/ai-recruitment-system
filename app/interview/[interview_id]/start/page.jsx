@@ -7,6 +7,7 @@ import AlertConfirmation from "./_components/AlertConfirmation";
 import axios from "axios";
 import TimmerComponent from "./_components/TimmerComponent";
 import { getVapiClient } from "@/lib/vapiconfig";
+import { Room, RoomEvent, Track } from "livekit-client";
 import { supabase } from "@/services/supabaseClient";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -15,6 +16,8 @@ import { Button } from "@/components/ui/button";
 function StartInterview() {
   const { interviewInfo, setInterviewInfo } = useContext(InterviewDataContext);
   const vapi = getVapiClient();
+  const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+
   const [activeUser, setActiveUser] = useState(false);
   const [start, setStart] = useState(false);
   const [subtitles, setSubtitles] = useState("");
@@ -24,11 +27,13 @@ function StartInterview() {
   const router = useRouter();
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
 
+  // LiveKit room ref
+  const roomRef = useRef(null);
+
   // Browser-native speech recognition & synthesis refs
   const recognitionRef = useRef(null);
   const isListeningRef = useRef(false);
   const turnCountRef = useRef(1);
-  const isBrowserMode = !vapi;
 
   // Restore stored session if page refreshed
   useEffect(() => {
@@ -54,7 +59,82 @@ function StartInterview() {
   }, [interviewInfo, interview_id, setInterviewInfo, router]);
 
   // ==========================================
-  // 1. VAPI WebRTC VOICE MODE (If Vapi Key Present)
+  // 1. LIVEKIT WEBRTC VOICE MODE (Open-Source Vapi Alternative)
+  // ==========================================
+  const startLiveKitCall = useCallback(async () => {
+    if (!interviewInfo) return;
+    const roomName = `interview_${interview_id}`;
+    const candidateName = interviewInfo?.candidate_name || "Candidate";
+
+    try {
+      const res = await axios.post("/api/livekit/token", {
+        roomName,
+        participantName: candidateName,
+      });
+
+      const { token, wsUrl } = res.data;
+      if (!token || !wsUrl) {
+        throw new Error("Invalid LiveKit token response");
+      }
+
+      const room = new Room({
+        adaptiveStream: true,
+        dynacast: true,
+        audioCaptureDefaults: {
+          autoGainControl: true,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+
+      room.on(RoomEvent.Connected, () => {
+        toast.success("Connected to LiveKit voice session");
+        setStart(true);
+      });
+
+      room.on(RoomEvent.TrackSubscribed, (track) => {
+        if (track.kind === Track.Kind.Audio) {
+          const audioElement = track.attach();
+          document.body.appendChild(audioElement);
+        }
+      });
+
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        const isAgent = speakers.some((s) => s.identity !== room.localParticipant.identity);
+        const isUser = speakers.some((s) => s.identity === room.localParticipant.identity);
+        setIsSpeaking(isAgent);
+        setActiveUser(isUser);
+      });
+
+      room.on(RoomEvent.DataReceived, (payload) => {
+        try {
+          const str = new TextDecoder().decode(payload);
+          const data = JSON.parse(str);
+          if (data?.text) {
+            setSubtitles(data.text);
+            conversation.current = [...conversation.current, { role: data.role || "assistant", content: data.text }];
+          }
+        } catch {}
+      });
+
+      room.on(RoomEvent.Disconnected, () => {
+        toast.info("Interview session ended. Generating evaluation...");
+        setIsGeneratingFeedback(true);
+        GenerateFeedback();
+      });
+
+      await room.connect(wsUrl, token);
+      await room.localParticipant.setMicrophoneEnabled(true);
+      roomRef.current = room;
+    } catch (err) {
+      console.error("LiveKit connection error:", err);
+      toast.error("LiveKit connection failed. Falling back to Browser Voice engine.");
+      startBrowserCall();
+    }
+  }, [interviewInfo, interview_id]);
+
+  // ==========================================
+  // 2. VAPI WebRTC VOICE MODE (If Vapi Key Present)
   // ==========================================
   const startVapiCall = useCallback(() => {
     if (!vapi || !interviewInfo) return;
@@ -169,7 +249,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
   }, [vapi]);
 
   // ==========================================
-  // 2. BROWSER-NATIVE ADAPTIVE VOICE MODE (When Vapi Key Absent)
+  // 3. BROWSER-NATIVE ADAPTIVE VOICE MODE (Zero-Cost Fallback)
   // ==========================================
   const speakText = useCallback((text, onEnd) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -182,7 +262,6 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
-    // Pick best English voice available
     const voices = window.speechSynthesis.getVoices();
     const naturalVoice = voices.find(
       (v) => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha") || v.name.includes("Karen"))
@@ -212,12 +291,11 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
   const handleCandidateResponse = useCallback(async (candidateTranscript) => {
     if (!candidateTranscript || !candidateTranscript.trim()) return;
 
-    // Add candidate turn
     const userTurn = { role: "user", content: candidateTranscript.trim() };
     conversation.current = [...conversation.current, userTurn];
 
     setIsSpeaking(false);
-    setActiveUser(false); // Processing state
+    setActiveUser(false);
     setSubtitles("Synthesizing adaptive follow-up question...");
 
     try {
@@ -239,14 +317,12 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
       conversation.current = [...conversation.current, assistantTurn];
       setSubtitles(aiText);
 
-      // Speak AI response out loud
       speakText(aiText, () => {
         if (nextTurn.isConcluded) {
           toast.info("Interview concluded. Generating evaluation...");
           setIsGeneratingFeedback(true);
           GenerateFeedback();
         } else {
-          // Listen for next candidate turn
           startListening();
         }
       });
@@ -288,14 +364,10 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
       };
 
       recognition.onerror = (e) => {
-        console.warn("Speech recognition notice:", e.error);
-        if (e.error === "no-speech") {
-          // Restart listening if candidate was just thinking
-          if (!isSpeaking && start) {
-            setTimeout(() => {
-              try { recognition.start(); } catch {}
-            }, 600);
-          }
+        if (e.error === "no-speech" && !isSpeaking && start) {
+          setTimeout(() => {
+            try { recognition.start(); } catch {}
+          }, 600);
         }
       };
 
@@ -310,7 +382,6 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
     }
   }, [handleCandidateResponse, isSpeaking, start]);
 
-  // Start Browser-Native Call
   const startBrowserCall = useCallback(() => {
     const jobPosition = interviewInfo?.jobPosition || "Technical Role";
     const candidateName = interviewInfo?.candidate_name || "there";
@@ -322,24 +393,25 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
     setSubtitles(introText);
     conversation.current = [{ role: "assistant", content: introText }];
 
-    // Speak introduction, then listen for candidate's answer
     speakText(introText, () => {
       startListening();
     });
   }, [interviewInfo, speakText, startListening]);
 
-  // Initialize Session
+  // Initialize Session: LiveKit > Vapi > Browser-Native
   useEffect(() => {
     if (interviewInfo && interviewInfo?.jobPosition && !start) {
-      if (vapi) {
+      if (livekitUrl) {
+        setStart(true);
+        startLiveKitCall();
+      } else if (vapi) {
         setStart(true);
         startVapiCall();
       } else {
-        // Start browser-native engine with dynamic adaptive branching
         startBrowserCall();
       }
     }
-  }, [interviewInfo, vapi, start, startVapiCall, startBrowserCall]);
+  }, [interviewInfo, livekitUrl, vapi, start, startLiveKitCall, startVapiCall, startBrowserCall]);
 
   // Generate Final Feedback
   const GenerateFeedback = async () => {
@@ -402,7 +474,9 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
   };
 
   const stopInterview = () => {
-    if (vapi) {
+    if (roomRef.current) {
+      roomRef.current.disconnect();
+    } else if (vapi) {
       vapi.stop();
     } else {
       if (typeof window !== "undefined") {
@@ -427,7 +501,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-sage-700">Live Voice Evaluation</span>
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-sage-100 text-sage-800 border border-sage-200">
-                Adaptive AI Active
+                {livekitUrl ? "LiveKit WebRTC" : vapi ? "Vapi WebRTC" : "Adaptive AI Active"}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-semibold text-ink leading-snug">
@@ -540,7 +614,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
         <div className="bg-surface rounded-lg border border-line p-4 shadow-card flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs text-ink-muted">
             <span className="w-2 h-2 rounded-full bg-success" />
-            <span className="hidden sm:inline">Encrypted audio session active</span>
+            <span className="hidden sm:inline">Encrypted voice session active</span>
             <span className="sm:hidden">Interview active</span>
           </div>
 

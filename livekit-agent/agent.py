@@ -1,0 +1,66 @@
+import asyncio
+import os
+import json
+from dotenv import load_dotenv
+from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
+from livekit.agents.voice_assistant import VoiceAssistant
+from livekit.plugins import deepgram, groq, silero, cartesia
+
+load_dotenv()
+
+async def entrypoint(ctx: JobContext):
+    # Connect to room and listen to participant audio
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+
+    # Extract interview metadata if passed in room name or metadata
+    participant = await ctx.wait_for_participant()
+    candidate_name = participant.name or "Candidate"
+
+    # Dynamic Adaptive Interviewer instructions
+    adaptive_prompt = f"""
+You are an expert Executive AI Technical Interviewer conducting a live adaptive voice screening.
+Candidate Name: {candidate_name}
+
+YOUR CORE DIRECTIVE - ADAPTIVE DYNAMIC INTERVIEWING:
+Evaluate the candidate's answers in real time and dynamically adjust the difficulty, depth, and direction:
+1. IF THE CANDIDATE GIVES A STRONG / QUALIFIED ANSWER:
+   - Acknowledge their point in half a sentence.
+   - Elevate the challenge. Ask an advanced follow-up exploring architecture trade-offs, edge cases, failure recovery, or concurrency.
+2. IF THE CANDIDATE GIVES A VAGUE OR BUZZWORD-HEAVY ANSWER:
+   - Ask for a concrete practical implementation example from their real work experience.
+3. IF THE CANDIDATE STRUGGLES:
+   - Pivot warmly to another core competency area so they can demonstrate their strengths.
+
+CONVERSATIONAL VOICE CONSTRAINTS:
+- Ask exactly ONE question at a time.
+- Keep each response under 2 to 3 sentences maximum so the candidate has airtime.
+- Be conversational, friendly, professional, and natural.
+- Cover 4 to 5 key competency domains across the interview, then conclude warmly.
+""".strip()
+
+    # Configure the Voice Pipeline Agent
+    # 1. Silero VAD: Instant interruption / barge-in handling
+    # 2. Deepgram STT: Real-time speech-to-text
+    # 3. Groq LLM: Sub-200ms ultra-fast reasoning with Llama 3.3 70B
+    # 4. Cartesia TTS: Real-time expressive voice generation
+    assistant = VoiceAssistant(
+        vad=silero.VAD.load(),
+        stt=deepgram.STT(model="nova-2", language="en"),
+        llm=groq.LLM(model="llama-3.3-70b-versatile"),
+        tts=cartesia.TTS(model="sonic-english", voice="79a125e8-cd45-4c13-8a67-188112f4dd22"),
+        chat_ctx=llm.ChatContext().append(
+            role="system",
+            text=adaptive_prompt,
+        ),
+    )
+
+    assistant.start(ctx.room)
+
+    await asyncio.sleep(1)
+    await assistant.say(
+        f"Hello {candidate_name}. Welcome to your live technical interview. I'm looking forward to speaking with you today. When you're ready, let's begin: could you start by introducing yourself and sharing what you've been working on recently?",
+        allow_interruptions=True,
+    )
+
+if __name__ == "__main__":
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
