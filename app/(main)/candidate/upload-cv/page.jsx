@@ -663,10 +663,10 @@ export default function UploadCV() {
               </div>
             </div>
 
-            <CardContent className="p-6 pt-6 space-y-6">
+            <CardContent className="p-6 !pt-6 sm:!pt-6 space-y-6">
               {/* Executive Summary */}
               {analysis.summary && (
-                <div className="space-y-2 pt-2">
+                <div className="space-y-2 pt-1">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                     Profile Summary
                   </h4>

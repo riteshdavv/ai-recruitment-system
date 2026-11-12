@@ -2,7 +2,7 @@
 
 import { InterviewDataContext } from "@/context/InterviewDataContext";
 import { Mic, Phone, Timer, Volume2, ShieldCheck, HelpCircle } from "lucide-react";
-import React, { useContext, useEffect, useState, useRef } from "react";
+import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
 import AlertConfirmation from "./_components/AlertConfirmation";
 import axios from "axios";
 import TimmerComponent from "./_components/TimmerComponent";
@@ -18,13 +18,19 @@ function StartInterview() {
   const [activeUser, setActiveUser] = useState(false);
   const [start, setStart] = useState(false);
   const [subtitles, setSubtitles] = useState("");
-  const [lastTurns, setLastTurns] = useState([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const conversation = useRef(null);
+  const conversation = useRef([]);
   const { interview_id } = useParams();
   const router = useRouter();
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
 
+  // Browser-native speech recognition & synthesis refs
+  const recognitionRef = useRef(null);
+  const isListeningRef = useRef(false);
+  const turnCountRef = useRef(1);
+  const isBrowserMode = !vapi;
+
+  // Restore stored session if page refreshed
   useEffect(() => {
     if (!interviewInfo && typeof window !== 'undefined') {
       const stored = localStorage.getItem('interviewInfo');
@@ -47,25 +53,44 @@ function StartInterview() {
     }
   }, [interviewInfo, interview_id, setInterviewInfo, router]);
 
-  useEffect(() => {
-    if (
-      interviewInfo &&
-      interviewInfo?.jobPosition &&
-      vapi &&
-      !start
-    ) {
-      setStart(true);
-      startCall();
-    }
-  }, [interviewInfo, vapi]);
+  // ==========================================
+  // 1. VAPI WebRTC VOICE MODE (If Vapi Key Present)
+  // ==========================================
+  const startVapiCall = useCallback(() => {
+    if (!vapi || !interviewInfo) return;
 
-  const startCall = async () => {
-    const jobPosition = interviewInfo?.jobPosition || "Role Position";
-    const questionList = interviewInfo?.questionList?.interviewQuestions?.map((question) => question?.question) || [];
+    const jobPosition = interviewInfo?.jobPosition || "Technical Specialist";
+    const jobDescription = interviewInfo?.jobDescription || "";
+    const questionList = interviewInfo?.questionList?.interviewQuestions?.map((q) => q?.question) || [];
+    const candidateName = interviewInfo?.candidate_name || "there";
+
+    const adaptiveSystemPrompt = `
+You are an expert Executive AI Technical Interviewer conducting a live, adaptive voice screening for the position of "${jobPosition}".
+Candidate Name: ${candidateName}
+${jobDescription ? `Job Context & Requirements: ${jobDescription}` : ""}
+
+YOUR CORE DIRECTIVE - ADAPTIVE DYNAMIC INTERVIEWING:
+Do NOT follow a static, rigid script. You must evaluate the candidate's responses in real-time and dynamically adjust the difficulty, depth, and direction:
+1. STARTER QUESTIONS (Baseline):
+   Start with a baseline competency question selected from: ${JSON.stringify(questionList.slice(0, 3))}
+2. REAL-TIME ADAPTATION & BRANCHING:
+   - IF THE CANDIDATE GIVES A STRONG / QUALIFIED ANSWER:
+     -> Briefly acknowledge the technical point.
+     -> Elevate the challenge. Ask an advanced follow-up exploring architecture trade-offs, edge cases, failure recovery, or concurrency.
+   - IF THE CANDIDATE GIVES A VAGUE OR BUZZWORD-HEAVY ANSWER:
+     -> Ask for a concrete practical implementation example from their real work experience.
+   - IF THE CANDIDATE STRUGGLES:
+     -> Pivot warmly to another core competency area so they can demonstrate their strengths.
+3. CONVERSATIONAL VOICE CONSTRAINTS:
+   - Ask exactly ONE question at a time.
+   - Keep your responses under 2-3 sentences so the candidate has plenty of airtime.
+   - Speak naturally, professionally, and warmly.
+   - Cover ~4 to 5 key competency domains across the interview, then conclude warmly and thank ${candidateName}.
+`.trim();
 
     const assistantOptions = {
-      name: "AI Recruiter",
-      firstMessage: `Hello ${interviewInfo?.candidate_name || "there"}. Welcome to your interview session for the ${jobPosition} position. When you are ready, let's begin with our questions.`,
+      name: "RecruitAI Interviewer",
+      firstMessage: `Hello ${candidateName}. Welcome to your interview session for the ${jobPosition} position. I'm excited to speak with you today. When you're ready, let's get started.`,
       transcriber: {
         provider: "deepgram",
         model: "nova-3",
@@ -76,39 +101,38 @@ function StartInterview() {
         voiceId: "jennifer",
       },
       model: {
-        provider: "openai",
-        model: "gpt-4",
+        provider: "groq",
+        model: "llama-3.3-70b-versatile",
+        fallbackModels: [
+          {
+            provider: "openai",
+            model: "gpt-4o-mini",
+          },
+        ],
         messages: [
           {
             role: "system",
-            content: `
-You are an executive AI voice interviewer conducting a professional screening.
-Your job is to ask the candidate the provided interview questions one by one and assess their answers.
-Ask one question at a time and wait patiently for the candidate's response.
-Questions: ${JSON.stringify(questionList)}
-Be conversational, professional, concise, and friendly.
-After finishing the questions, conclude smoothly and let them know their responses have been recorded.
-`.trim(),
+            content: adaptiveSystemPrompt,
           },
         ],
       },
     };
 
     vapi.start(assistantOptions);
-  };
+  }, [vapi, interviewInfo]);
 
+  // Vapi event subscriptions
   useEffect(() => {
     if (!vapi) return;
 
     const handleMessage = (message) => {
       if (message?.role === "assistant" && message?.content) {
         setSubtitles(message.content);
-        setLastTurns(prev => [...prev.slice(-2), message.content]);
       }
-      
+
       if (message && message?.conversation) {
-        const filteredConversation = message.conversation.filter((msg) => msg.role !== "system") || "";
-        conversation.current = JSON.stringify(filteredConversation, null, 2);
+        const filtered = message.conversation.filter((msg) => msg.role !== "system");
+        conversation.current = filtered;
       }
     };
 
@@ -144,12 +168,187 @@ After finishing the questions, conclude smoothly and let them know their respons
     };
   }, [vapi]);
 
+  // ==========================================
+  // 2. BROWSER-NATIVE ADAPTIVE VOICE MODE (When Vapi Key Absent)
+  // ==========================================
+  const speakText = useCallback((text, onEnd) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      if (onEnd) onEnd();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    // Pick best English voice available
+    const voices = window.speechSynthesis.getVoices();
+    const naturalVoice = voices.find(
+      (v) => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha") || v.name.includes("Karen"))
+    ) || voices.find((v) => v.lang.startsWith("en"));
+    if (naturalVoice) utterance.voice = naturalVoice;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setActiveUser(false);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setActiveUser(true);
+      if (onEnd) onEnd();
+    };
+
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setActiveUser(true);
+      if (onEnd) onEnd();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  const handleCandidateResponse = useCallback(async (candidateTranscript) => {
+    if (!candidateTranscript || !candidateTranscript.trim()) return;
+
+    // Add candidate turn
+    const userTurn = { role: "user", content: candidateTranscript.trim() };
+    conversation.current = [...conversation.current, userTurn];
+
+    setIsSpeaking(false);
+    setActiveUser(false); // Processing state
+    setSubtitles("Synthesizing adaptive follow-up question...");
+
+    try {
+      const questionList = interviewInfo?.questionList?.interviewQuestions?.map((q) => q?.question) || [];
+      const res = await axios.post("/api/ai-interview-turn", {
+        jobPosition: interviewInfo?.jobPosition || "Technical Role",
+        jobDescription: interviewInfo?.jobDescription || "",
+        candidateName: interviewInfo?.candidate_name || "Candidate",
+        conversationHistory: conversation.current,
+        questionList,
+        turnCount: turnCountRef.current,
+      });
+
+      const nextTurn = res.data;
+      turnCountRef.current = nextTurn.turnCount || turnCountRef.current + 1;
+
+      const aiText = nextTurn.message || "Thank you. Let's move to the next question.";
+      const assistantTurn = { role: "assistant", content: aiText };
+      conversation.current = [...conversation.current, assistantTurn];
+      setSubtitles(aiText);
+
+      // Speak AI response out loud
+      speakText(aiText, () => {
+        if (nextTurn.isConcluded) {
+          toast.info("Interview concluded. Generating evaluation...");
+          setIsGeneratingFeedback(true);
+          GenerateFeedback();
+        } else {
+          // Listen for next candidate turn
+          startListening();
+        }
+      });
+    } catch (err) {
+      console.error("Adaptive turn error:", err);
+      toast.error("Failed to generate follow-up question.");
+    }
+  }, [interviewInfo, speakText]);
+
+  const startListening = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Browser speech recognition not supported. Please use Chrome or Edge.");
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        isListeningRef.current = true;
+        setActiveUser(true);
+        setIsSpeaking(false);
+      };
+
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        if (text) {
+          handleCandidateResponse(text);
+        }
+      };
+
+      recognition.onerror = (e) => {
+        console.warn("Speech recognition notice:", e.error);
+        if (e.error === "no-speech") {
+          // Restart listening if candidate was just thinking
+          if (!isSpeaking && start) {
+            setTimeout(() => {
+              try { recognition.start(); } catch {}
+            }, 600);
+          }
+        }
+      };
+
+      recognition.onend = () => {
+        isListeningRef.current = false;
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Recognition start error:", err);
+    }
+  }, [handleCandidateResponse, isSpeaking, start]);
+
+  // Start Browser-Native Call
+  const startBrowserCall = useCallback(() => {
+    const jobPosition = interviewInfo?.jobPosition || "Technical Role";
+    const candidateName = interviewInfo?.candidate_name || "there";
+    const firstQ = interviewInfo?.questionList?.interviewQuestions?.[0]?.question || "Can you tell me about your background and recent projects?";
+
+    const introText = `Hello ${candidateName}. Welcome to your live adaptive interview for the ${jobPosition} position. Let's begin: ${firstQ}`;
+    
+    setStart(true);
+    setSubtitles(introText);
+    conversation.current = [{ role: "assistant", content: introText }];
+
+    // Speak introduction, then listen for candidate's answer
+    speakText(introText, () => {
+      startListening();
+    });
+  }, [interviewInfo, speakText, startListening]);
+
+  // Initialize Session
+  useEffect(() => {
+    if (interviewInfo && interviewInfo?.jobPosition && !start) {
+      if (vapi) {
+        setStart(true);
+        startVapiCall();
+      } else {
+        // Start browser-native engine with dynamic adaptive branching
+        startBrowserCall();
+      }
+    }
+  }, [interviewInfo, vapi, start, startVapiCall, startBrowserCall]);
+
+  // Generate Final Feedback
   const GenerateFeedback = async () => {
-    if (!interviewInfo || !conversation.current) {
-      toast.error("Interview conversation missing. Redirecting to start.");
+    if (!interviewInfo || conversation.current.length === 0) {
+      toast.error("Interview conversation missing. Redirecting.");
       router.replace(`/interview/${interview_id}`);
       return;
     }
+
     try {
       const result = await axios.post("/api/ai-feedback", {
         conversation: conversation.current,
@@ -201,22 +400,36 @@ After finishing the questions, conclude smoothly and let them know their respons
       setIsGeneratingFeedback(false);
     }
   };
-  
+
   const stopInterview = () => {
-    if (vapi) vapi.stop();
+    if (vapi) {
+      vapi.stop();
+    } else {
+      if (typeof window !== "undefined") {
+        window.speechSynthesis?.cancel();
+        if (recognitionRef.current) recognitionRef.current.abort();
+      }
+      setIsGeneratingFeedback(true);
+      GenerateFeedback();
+    }
   };
 
-  // State determination as per Section 6.1
+  // State determination
   const agentState = isSpeaking ? "speaking" : activeUser ? "listening" : start ? "processing" : "connecting";
 
   return (
     <div className="min-h-screen bg-sage-50 py-10 px-4 sm:px-6 flex flex-col justify-between">
-      {/* 720px focused column as per Section 6.1 */}
+      {/* 720px focused column */}
       <div className="max-w-[720px] mx-auto w-full space-y-6">
         {/* Top Header bar with mono timer */}
         <header className="flex items-center justify-between border-b border-line pb-4">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-sage-700">Live Voice Evaluation</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-sage-700">Live Voice Evaluation</span>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-sage-100 text-sage-800 border border-sage-200">
+                Adaptive AI Active
+              </span>
+            </div>
             <h1 className="text-xl sm:text-2xl font-semibold text-ink leading-snug">
               {interviewInfo?.jobPosition || "Candidate Interview"}
             </h1>
@@ -228,7 +441,7 @@ After finishing the questions, conclude smoothly and let them know their respons
           </div>
         </header>
 
-        {/* AI Agent Panel with Orb / Waveform States as per Section 6.1 */}
+        {/* AI Agent Panel with Orb / Waveform States */}
         <div className="bg-surface rounded-xl border border-line shadow-card p-8 sm:p-12 text-center space-y-6 relative overflow-hidden">
           {/* Subtle background ambient pulse for speaking */}
           {agentState === "speaking" && (
@@ -296,7 +509,7 @@ After finishing the questions, conclude smoothly and let them know their respons
                 <span className={`w-2 h-2 rounded-full ${
                   agentState === "speaking" ? "bg-sage-600 animate-pulse" : agentState === "listening" ? "bg-success animate-pulse" : "bg-ink-subtle"
                 }`} />
-                {agentState === "speaking" ? "AI Agent is speaking..." : agentState === "listening" ? "Listening to your response" : "Synthesizing next prompt"}
+                {agentState === "speaking" ? "AI Interviewer is speaking..." : agentState === "listening" ? "Listening to your answer..." : "Evaluating answer & adapting next question..."}
               </span>
             </div>
 
@@ -306,7 +519,7 @@ After finishing the questions, conclude smoothly and let them know their respons
             </p>
           </div>
 
-          {/* Live Caption Area under orb as per Section 6.1 */}
+          {/* Live Caption Area under orb */}
           <div className="pt-4 border-t border-line text-left">
             <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted block mb-2">Live Transcript</span>
             <div className="p-4 rounded-md bg-surface-alt border border-line min-h-[90px] flex items-center justify-center">
@@ -323,12 +536,12 @@ After finishing the questions, conclude smoothly and let them know their respons
           </div>
         </div>
 
-        {/* Controls Bar as per Section 6.1 (fixed bottom on mobile or inline) */}
+        {/* Controls Bar */}
         <div className="bg-surface rounded-lg border border-line p-4 shadow-card flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs text-ink-muted">
             <span className="w-2 h-2 rounded-full bg-success" />
-            <span className="hidden sm:inline">Encrypted audio pipeline connected</span>
-            <span className="sm:hidden">Call active</span>
+            <span className="hidden sm:inline">Encrypted audio session active</span>
+            <span className="sm:hidden">Interview active</span>
           </div>
 
           <div className="flex items-center gap-3">
