@@ -13,6 +13,7 @@ import { supabase } from "@/services/supabaseClient";
 import { toast } from "sonner";
 import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail } from "lucide-react";
 import Image from "next/image";
+import CandidateDecisionEmailDialog from "./CandidateDecisionEmailDialog";
 
 function CandidateFeedbackDialog({ candidate }) {
   const [downloadingCV, setDownloadingCV] = useState(false);
@@ -213,25 +214,36 @@ Sincerely,
 Hiring Team`,
   };
 
-  const handleEmailAction = (templateType) => {
-    const email = candidate?.email || "";
-    const lines = emailTemplates[templateType].split("\n");
-    const subject = lines[0].replace("Subject: ", "");
-    const body = lines.slice(1).join("\n");
+  const [decisionDialog, setDecisionDialog] = useState({
+    isOpen: false,
+    decisionType: "selected",
+    initialSubject: "",
+    initialMessage: "",
+  });
 
-    window.location.href = `mailto:${email}?subject=${encodeURIComponent(
-      subject
-    )}&body=${encodeURIComponent(body)}`;
+  const handleOpenDecisionDialog = (templateType) => {
+    const rawTemplate = emailTemplates[templateType] || "";
+    const lines = rawTemplate.split("\n");
+    const subject = lines[0]?.replace("Subject: ", "").trim() || "";
+    const body = lines.slice(1).join("\n").trim();
+
+    setDecisionDialog({
+      isOpen: true,
+      decisionType: templateType,
+      initialSubject: subject,
+      initialMessage: body,
+    });
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-xs font-medium">
-          View Report
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+    <>
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="text-xs font-medium">
+            View Report
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-ink">
             Candidate Assessment Report
@@ -351,7 +363,7 @@ Hiring Team`,
                   {/* Email action trigger buttons */}
                   <div className="flex flex-col gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-line">
                     <Button
-                      onClick={() => handleEmailAction("selected")}
+                      onClick={() => handleOpenDecisionDialog("selected")}
                       size="sm"
                       className="h-8 text-xs font-medium bg-sage-700 hover:bg-sage-800 text-white justify-start"
                     >
@@ -359,7 +371,7 @@ Hiring Team`,
                       Advance Candidate
                     </Button>
                     <Button
-                      onClick={() => handleEmailAction("reevaluate")}
+                      onClick={() => handleOpenDecisionDialog("reevaluate")}
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs font-medium justify-start"
@@ -367,7 +379,7 @@ Hiring Team`,
                       Request Follow-up
                     </Button>
                     <Button
-                      onClick={() => handleEmailAction("rejected")}
+                      onClick={() => handleOpenDecisionDialog("rejected")}
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs font-medium text-danger border-line hover:bg-danger-soft justify-start"
@@ -382,6 +394,17 @@ Hiring Team`,
         </DialogHeader>
       </DialogContent>
     </Dialog>
+
+    {/* Candidate Decision Email Dispatcher Dialog */}
+    <CandidateDecisionEmailDialog
+      isOpen={decisionDialog.isOpen}
+      onClose={() => setDecisionDialog((prev) => ({ ...prev, isOpen: false }))}
+      decisionType={decisionDialog.decisionType}
+      candidate={candidate}
+      initialSubject={decisionDialog.initialSubject}
+      initialMessage={decisionDialog.initialMessage}
+    />
+  </>
   );
 }
 

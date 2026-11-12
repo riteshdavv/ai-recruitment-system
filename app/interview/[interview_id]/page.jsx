@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import Image from 'next/image';
 import Logo from '@/components/Logo';
-import { Clock, Mic, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Volume2 } from 'lucide-react';
+import { Clock, Mic, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Volume2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useParams, useRouter } from 'next/navigation';
@@ -23,6 +23,7 @@ function Interview() {
   const { interviewInfo, setInterviewInfo } = useContext(InterviewDataContext);
   const router = useRouter();
   const [accessDenied, setAccessDenied] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
   const { user } = useUser();
 
   useEffect(() => {
@@ -165,11 +166,42 @@ function Interview() {
           </div>
 
           {interviewData?.jobDescription && (
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">Role Overview</h3>
-              <p className="text-xs sm:text-sm text-ink leading-relaxed line-clamp-3 bg-surface-alt p-3.5 rounded border border-line">
-                {interviewData.jobDescription}
-              </p>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-sage-700" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                    Role Overview & Requirements
+                  </h3>
+                </div>
+                {interviewData.jobDescription.length > 180 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullDesc(!showFullDesc)}
+                    className="text-xs font-medium text-sage-700 hover:text-sage-800 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    {showFullDesc ? (
+                      <>
+                        Show less <ChevronUp className="w-3.5 h-3.5" />
+                      </>
+                    ) : (
+                      <>
+                        View full description <ChevronDown className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <div
+                className={`bg-surface-alt rounded-lg border border-line p-3.5 sm:p-4 transition-all duration-200 overflow-y-auto ${
+                  showFullDesc ? 'max-h-[380px]' : 'max-h-36 sm:max-h-40'
+                }`}
+              >
+                <div className="text-xs sm:text-sm text-ink leading-relaxed whitespace-pre-line font-normal">
+                  {interviewData.jobDescription}
+                </div>
+              </div>
             </div>
           )}
 
