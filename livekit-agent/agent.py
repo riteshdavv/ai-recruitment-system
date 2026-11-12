@@ -63,12 +63,32 @@ CONVERSATIONAL VOICE CONSTRAINTS:
     session = AgentSession(
         vad=vad,
         stt=deepgram.STT(model="nova-2", language="en"),
-        llm=groq.LLM(model="openai/gpt-oss-120b"),
+        llm=groq.LLM(model="openai/gpt-oss-20b"),
         tts=deepgram.TTS(model="aura-asteria-en"),
-        # Wait at least 600ms after user stops speaking before the agent responds.
-        # Prevents the agent from reacting to noise or partial utterances.
+        # Start with interruptions disabled for the introductory questions
+        allow_interruptions=False,
+        # Wait at least 600ms after user stops speaking before the agent responds
         min_endpointing_delay=0.6,
     )
+
+    # Track user turns so VAD interruptions (barge-in) are enabled only after 1-2 initial questions
+    user_turns_completed = 0
+
+    @session.on("conversation_item_added")
+    def on_conversation_item_added(ev):
+        nonlocal user_turns_completed
+        if ev.item.role == "user":
+            user_turns_completed += 1
+            logger.info(f"Candidate turn {user_turns_completed} recorded")
+            # Enable natural conversational barge-in after the first 2 questions/answers
+            if user_turns_completed >= 2:
+                try:
+                    interruption_cfg = session.options.turn_handling.get("interruption", {})
+                    interruption_cfg["enabled"] = True
+                    interruption_cfg["min_words"] = 2
+                    logger.info("VAD interruption (barge-in) ACTIVATED for technical evaluation")
+                except Exception as e:
+                    logger.warning(f"Failed to enable VAD interruption: {e}")
 
     agent = Agent(instructions=adaptive_prompt)
     await session.start(agent, room=ctx.room)
