@@ -2,8 +2,7 @@ import asyncio
 import os
 import json
 from dotenv import load_dotenv
-from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
-from livekit.agents.voice_assistant import VoiceAssistant
+from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm, Agent, AgentSession
 from livekit.plugins import deepgram, groq, silero, cartesia
 
 # Load .env from current or parent directory
@@ -14,9 +13,9 @@ if os.path.exists(parent_env):
 
 async def entrypoint(ctx: JobContext):
     # Connect to room and listen to participant audio
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+    ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
 
-    # Extract interview metadata if passed in room name or metadata
+    # Wait for the candidate participant to join
     participant = await ctx.wait_for_participant()
     candidate_name = participant.name or "Candidate"
 
@@ -42,30 +41,26 @@ CONVERSATIONAL VOICE CONSTRAINTS:
 - Cover 4 to 5 key competency domains across the interview, then conclude warmly.
 """.strip()
 
-    # Configure the Voice Pipeline Agent
+    # Configure the Voice Pipeline Agent Session
     # 1. Silero VAD: Instant interruption / barge-in handling
     # 2. Deepgram STT: Real-time speech-to-text
     # 3. Groq LLM: Sub-200ms ultra-fast reasoning with Llama 3.3 70B
     # 4. Cartesia TTS: Real-time expressive voice generation
-    assistant = VoiceAssistant(
+    session = AgentSession(
         vad=silero.VAD.load(),
         stt=deepgram.STT(model="nova-2", language="en"),
         llm=groq.LLM(model="llama-3.3-70b-versatile"),
         tts=cartesia.TTS(model="sonic-english", voice="79a125e8-cd45-4c13-8a67-188112f4dd22"),
-        chat_ctx=llm.ChatContext().append(
-            role="system",
-            text=adaptive_prompt,
-        ),
     )
 
-    assistant.start(ctx.room)
+    agent = Agent(instructions=adaptive_prompt)
+    await session.start(agent, room=ctx.room)
 
-    await asyncio.sleep(1)
-    await assistant.say(
+    # Introductory greeting
+    session.say(
         f"Hello {candidate_name}. Welcome to your live technical interview. I'm looking forward to speaking with you today. When you're ready, let's begin: could you start by introducing yourself and sharing what you've been working on recently?",
         allow_interruptions=True,
     )
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
-
