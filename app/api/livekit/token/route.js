@@ -7,13 +7,13 @@ export async function POST(req) {
 
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
-    const wsUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+    const wsUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || process.env.LIVEKIT_URL;
 
     if (!apiKey || !apiSecret || !wsUrl) {
       return NextResponse.json(
         {
           error:
-            "LiveKit credentials not configured. Please add LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and NEXT_PUBLIC_LIVEKIT_URL to your .env file.",
+            "LiveKit credentials not configured. Please add LIVEKIT_API_KEY, LIVEKIT_API_SECRET, and LIVEKIT_URL to your .env file.",
         },
         { status: 500 }
       );
@@ -57,3 +57,4 @@ export async function POST(req) {
     );
   }
 }
+

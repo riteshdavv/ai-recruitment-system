@@ -401,7 +401,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
   // Initialize Session: LiveKit > Vapi > Browser-Native
   useEffect(() => {
     if (interviewInfo && interviewInfo?.jobPosition && !start) {
-      if (livekitUrl) {
+      if (livekitUrl && !livekitUrl.includes("your-project")) {
         setStart(true);
         startLiveKitCall();
       } else if (vapi) {

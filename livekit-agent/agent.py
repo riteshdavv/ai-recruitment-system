@@ -6,7 +6,11 @@ from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
 from livekit.agents.voice_assistant import VoiceAssistant
 from livekit.plugins import deepgram, groq, silero, cartesia
 
+# Load .env from current or parent directory
 load_dotenv()
+parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
+if os.path.exists(parent_env):
+    load_dotenv(dotenv_path=parent_env)
 
 async def entrypoint(ctx: JobContext):
     # Connect to room and listen to participant audio
@@ -64,3 +68,4 @@ CONVERSATIONAL VOICE CONSTRAINTS:
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+
