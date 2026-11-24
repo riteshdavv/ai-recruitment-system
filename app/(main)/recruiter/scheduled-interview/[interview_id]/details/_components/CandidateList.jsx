@@ -7,7 +7,7 @@ import Image from "next/image";
 import { Download, Users, Star, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-function CandidateList({ candidateList }) {
+function CandidateList({ candidateList, interviewDetail }) {
   const [candidatesWithPictures, setCandidatesWithPictures] = useState([]);
 
   const calculateRating = (candidate) => {
@@ -158,7 +158,7 @@ function CandidateList({ candidateList }) {
                     </td>
 
                     <td className="py-3 px-5 text-right">
-                      <CandidateListFeedbackDialog candidate={candidate} />
+                      <CandidateListFeedbackDialog candidate={candidate} interviewDetail={interviewDetail} />
                     </td>
                   </tr>
                 );

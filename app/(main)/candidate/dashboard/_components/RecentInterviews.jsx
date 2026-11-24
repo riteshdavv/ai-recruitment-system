@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '@/app/provider';
 import { supabase } from '@/services/supabaseClient';
 import { Button } from '@/components/ui/button';
-import { Video, Calendar, Clock, Star, CheckCircle, ArrowRight } from 'lucide-react';
+import { Video, Calendar, Clock, CheckCircle, AlertTriangle, XCircle, Hourglass, ArrowRight } from 'lucide-react';
 import moment from 'moment';
 import Link from 'next/link';
 
@@ -25,7 +25,7 @@ export default function RecentInterviews() {
       setLoading(true);
       const { data: results, error } = await supabase
         .from('interview_results')
-        .select('*')
+        .select('id, interview_id, fullname, email, recommendations, recruiter_decision, completed_at, created_at')
         .eq('email', user.email)
         .order('completed_at', { ascending: false })
         .limit(4);
@@ -43,7 +43,7 @@ export default function RecentInterviews() {
       if (interviewIds.length > 0) {
         const { data: interviewsData } = await supabase
           .from('Interviews')
-          .select('interview_id, jobPosition, jobDescription, type, duration, created_at')
+          .select('interview_id, jobPosition, duration')
           .in('interview_id', interviewIds);
 
         if (interviewsData) {
@@ -68,11 +68,21 @@ export default function RecentInterviews() {
     }
   };
 
-  const calculateOverallScore = (feedback) => {
-    if (!feedback?.rating) return null;
-    const ratings = Object.values(feedback.rating).filter(val => typeof val === 'number');
-    if (ratings.length === 0) return null;
-    return Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
+  const getStatus = (result) => {
+    const decision = result.recruiter_decision;
+    if (!decision) return { label: 'Under Review', icon: Hourglass, variant: 'review' };
+    const d = decision.toLowerCase();
+    if (d === 'advanced' || d === 'selected') return { label: 'Advanced', icon: CheckCircle, variant: 'advanced' };
+    if (d === 'rejected') return { label: 'Not Selected', icon: XCircle, variant: 'rejected' };
+    if (d.includes('follow') || d === 'reevaluate') return { label: 'Follow-up', icon: AlertTriangle, variant: 'followup' };
+    return { label: decision, icon: Hourglass, variant: 'review' };
+  };
+
+  const statusStyles = {
+    review:   'bg-surface-alt text-ink-muted border-line',
+    advanced: 'bg-success-soft text-success border-success/20',
+    rejected: 'bg-danger-soft text-danger border-danger/20',
+    followup: 'bg-warning-soft text-warning border-warning/20',
   };
 
   return (
@@ -81,7 +91,7 @@ export default function RecentInterviews() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="text-lg font-semibold text-ink">Recent Interview History</h3>
-          <p className="text-xs text-ink-muted mt-0.5">Your completed sessions, transcript records, and feedback</p>
+          <p className="text-xs text-ink-muted mt-0.5">Your completed sessions and recruiter decisions</p>
         </div>
         {recentInterviews.length > 0 && (
           <Link href="/candidate/interviews">
@@ -112,18 +122,12 @@ export default function RecentInterviews() {
       ) : (
         <div className="space-y-3">
           {recentInterviews.map((result) => {
-            const score = result.conversation_transcript?.feedback
-              ? calculateOverallScore(result.conversation_transcript.feedback)
-              : null;
-            const feedback = result.conversation_transcript?.feedback;
-            const isRecommended = feedback?.Recommendation
-              ? !feedback.Recommendation.toLowerCase().includes('not')
-              : null;
+            const { label, icon: StatusIcon, variant } = getStatus(result);
 
             return (
               <div
                 key={result.id}
-                className="bg-surface rounded-md border border-line p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-sage-300 transition-colors"
+                className="bg-surface rounded-md border border-line p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="min-w-0">
                   <h4 className="font-medium text-sm text-ink truncate">
@@ -146,31 +150,12 @@ export default function RecentInterviews() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                  {score !== null && (
-                    <span className="inline-flex items-center gap-1 text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-sage-100 text-sage-900 border border-sage-200 tabular-nums">
-                      <Star className="w-3 h-3 text-sage-700" strokeWidth={2} />
-                      {score}/10
-                    </span>
-                  )}
-                  {isRecommended !== null && (
-                    <span
-                      className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                        isRecommended
-                          ? 'bg-success-soft text-success border border-success/20'
-                          : 'bg-danger-soft text-danger border border-danger/20'
-                      }`}
-                    >
-                      {isRecommended ? 'Recommended' : 'Needs Review'}
-                    </span>
-                  )}
-                  {score === null && isRecommended === null && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-success-soft text-success border border-success/20">
-                      <CheckCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      Completed
-                    </span>
-                  )}
-                </div>
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full border self-start sm:self-auto ${statusStyles[variant]}`}
+                >
+                  <StatusIcon className="w-3 h-3" strokeWidth={1.75} />
+                  {label}
+                </span>
               </div>
             );
           })}

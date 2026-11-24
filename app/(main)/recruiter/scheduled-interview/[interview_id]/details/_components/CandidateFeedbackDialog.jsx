@@ -15,7 +15,7 @@ import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail, XCircle, Me
 import Image from "next/image";
 import CandidateDecisionEmailDialog from "./CandidateDecisionEmailDialog";
 
-function CandidateFeedbackDialog({ candidate }) {
+function CandidateFeedbackDialog({ candidate, interviewDetail }) {
   const [downloadingCV, setDownloadingCV] = useState(false);
   const [cvAvailable, setCvAvailable] = useState(false);
   const [cvFilePath, setCvFilePath] = useState(null);
@@ -275,8 +275,11 @@ function CandidateFeedbackDialog({ candidate }) {
     }
   }, [candidate?.email]);
 
+  // Resolve jobPosition from joined interviewDetail (recruiter side always has this) or fallback
+  const jobPosition = interviewDetail?.jobPosition || candidate?.jobPosition || "the position";
+
   const emailTemplates = {
-    selected: `Subject: Invitation to Next Interview Stage: ${candidate?.jobPosition || "Role"}
+    selected: `Subject: Invitation to Next Interview Stage: ${jobPosition}
 
 Dear ${candidate?.fullname || "Candidate"},
 
@@ -295,11 +298,11 @@ Our recruiting team will follow up shortly with scheduling options.
 Sincerely,
 Hiring Team`,
 
-    rejected: `Subject: Update Regarding Your Application for ${candidate?.jobPosition || "the position"}
+    rejected: `Subject: Update Regarding Your Application for ${jobPosition}
 
 Dear ${candidate?.fullname || "Candidate"},
 
-Thank you for completing your interview assessment for the ${candidate?.jobPosition || "the position"} role.
+Thank you for completing your interview assessment for the ${jobPosition} role.
 
 While your profile has merits, we have decided to advance other candidates whose current skill alignment more closely fits this position's immediate needs.
 
@@ -308,11 +311,11 @@ We appreciate the time you dedicated to interviewing with us and wish you contin
 Sincerely,
 Hiring Team`,
 
-    reevaluate: `Subject: Follow-up on Your Interview Assessment for ${candidate?.jobPosition || "the position"}
+    reevaluate: `Subject: Follow-up on Your Interview Assessment for ${jobPosition}
 
 Dear ${candidate?.fullname || "Candidate"},
 
-Thank you for completing the initial voice interview for the ${candidate?.jobPosition || "the position"} role. We would like to schedule a brief follow-up discussion to explore a few aspects of your experience in greater detail.
+Thank you for completing the initial voice interview for the ${jobPosition} role. We would like to schedule a brief follow-up discussion to explore a few aspects of your experience in greater detail.
 
 Please let us know your general availability over the upcoming days.
 
@@ -723,6 +726,8 @@ Hiring Team`,
       onClose={() => setDecisionDialog((prev) => ({ ...prev, isOpen: false }))}
       decisionType={decisionDialog.decisionType}
       candidate={candidate}
+      jobPosition={jobPosition}
+      interviewId={interviewDetail?.interview_id || candidate?.interview_id}
       initialSubject={decisionDialog.initialSubject}
       initialMessage={decisionDialog.initialMessage}
     />

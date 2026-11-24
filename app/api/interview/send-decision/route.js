@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { sendCandidateDecisionEmail } from "@/lib/mail";
+import { createClient } from "@supabase/supabase-js";
+
+// Server-side Supabase client (service role not needed — anon key is fine for UPDATE with matching email)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export async function POST(req) {
   try {
@@ -8,6 +15,7 @@ export async function POST(req) {
       candidateEmail,
       candidateName = "Candidate",
       jobPosition = "Position Specialist",
+      interviewId,          // optional: used to scope the DB update
       decisionType = "selected",
       subject,
       message,
@@ -35,6 +43,37 @@ export async function POST(req) {
         { error: "Email message body cannot be empty." },
         { status: 400 }
       );
+    }
+
+    // --- Persist the recruiter's decision to interview_results ---
+    // Map decisionType to a canonical status visible on the candidate dashboard
+    const decisionStatusMap = {
+      selected: "Advanced",
+      reevaluate: "Follow-up Required",
+      rejected: "Rejected",
+    };
+    const recruiterDecision = decisionStatusMap[decisionType] || decisionType;
+
+    try {
+      let query = supabase
+        .from("interview_results")
+        .update({ recruiter_decision: recruiterDecision })
+        .eq("email", cleanEmail);
+
+      // Scope to specific interview if ID provided, otherwise update most recent
+      if (interviewId) {
+        query = query.eq("interview_id", interviewId);
+      } else {
+        query = query.order("completed_at", { ascending: false }).limit(1);
+      }
+
+      const { error: updateError } = await query;
+      if (updateError) {
+        console.warn("Could not persist recruiter_decision to DB:", updateError.message);
+        // Non-fatal — email still sends even if DB update fails
+      }
+    } catch (dbErr) {
+      console.warn("DB update error (non-fatal):", dbErr?.message);
     }
 
     const result = await sendCandidateDecisionEmail({

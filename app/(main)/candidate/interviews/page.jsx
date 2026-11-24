@@ -2,23 +2,14 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@/app/provider';
 import { supabase } from '@/services/supabaseClient';
-import { Video, Calendar, Clock, Star, CheckCircle, AlertTriangle, MessageSquare, ChevronRight } from 'lucide-react';
+import { Video, Calendar, Clock, CheckCircle, AlertTriangle, XCircle, Hourglass } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
 
 export default function CandidateInterviews() {
   const { user } = useUser();
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedInterview, setSelectedInterview] = useState(null);
 
   useEffect(() => {
     if (user?.email) {
@@ -33,7 +24,7 @@ export default function CandidateInterviews() {
       setLoading(true);
       const { data: results, error } = await supabase
         .from('interview_results')
-        .select('*')
+        .select('id, interview_id, fullname, email, recommendations, recruiter_decision, completed_at, created_at')
         .eq('email', user.email)
         .order('completed_at', { ascending: false });
 
@@ -54,7 +45,7 @@ export default function CandidateInterviews() {
       if (interviewIds.length > 0) {
         const { data: interviewsData } = await supabase
           .from('Interviews')
-          .select('interview_id, jobPosition, jobDescription, type, duration, created_at, userEmail')
+          .select('interview_id, jobPosition, duration')
           .in('interview_id', interviewIds);
 
         if (interviewsData) {
@@ -79,54 +70,51 @@ export default function CandidateInterviews() {
     }
   };
 
-  const calculateOverallScore = (feedback) => {
-    if (!feedback?.rating) return null;
-    const ratings = Object.values(feedback.rating).filter(val => typeof val === 'number');
-    if (ratings.length === 0) return null;
-    return Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
+  /**
+   * Derive the status to show the candidate.
+   * Priority: recruiter_decision (written by send-decision route) > "Under Review"
+   */
+  const getStatus = (result) => {
+    const decision = result.recruiter_decision;
+
+    if (!decision) {
+      return { label: 'Under Review', icon: Hourglass, variant: 'review' };
+    }
+
+    const d = decision.toLowerCase();
+    if (d === 'advanced' || d === 'selected') {
+      return { label: 'Advanced to Next Stage', icon: CheckCircle, variant: 'advanced' };
+    }
+    if (d === 'rejected') {
+      return { label: 'Not Selected', icon: XCircle, variant: 'rejected' };
+    }
+    if (d.includes('follow') || d === 'reevaluate') {
+      return { label: 'Follow-up Requested', icon: AlertTriangle, variant: 'followup' };
+    }
+    return { label: decision, icon: Hourglass, variant: 'review' };
   };
 
-  const getSummaryText = (feedback) => {
-    const raw =
-      feedback?.summary ||
-      feedback?.summery ||
-      feedback?.Summary ||
-      feedback?.Summery ||
-      '';
-    if (typeof raw === 'string') return raw;
-    if (Array.isArray(raw)) return raw.join(' ');
-    return '';
+  const statusStyles = {
+    review:   'bg-surface-alt text-ink-muted border-line',
+    advanced: 'bg-success-soft text-success border-success/20',
+    rejected: 'bg-danger-soft text-danger border-danger/20',
+    followup: 'bg-warning-soft text-warning border-warning/20',
   };
-
-  const selectedFeedback = selectedInterview?.conversation_transcript?.feedback || {};
-  const selectedRating = selectedFeedback?.rating || {};
-  const selectedScore = calculateOverallScore(selectedFeedback);
-  const selectedSummary = getSummaryText(selectedFeedback);
-  const selectedRecommendationMsg =
-    selectedFeedback?.RecommendationMessage ||
-    selectedFeedback?.recommendationMessage ||
-    '';
-  const selectedIsRecommended = selectedFeedback?.Recommendation
-    ? !selectedFeedback.Recommendation.toLowerCase().includes('not')
-    : null;
-  const selectedTranscript =
-    selectedInterview?.conversation_transcript?.transcript ||
-    selectedInterview?.conversation_transcript?.conversation ||
-    selectedInterview?.conversation_transcript?.dialogue ||
-    [];
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-ink">My Interviews</h1>
-        <p className="text-ink-muted text-sm mt-1">History of all voice interview sessions, assessments, and feedback</p>
+        <p className="text-ink-muted text-sm mt-1">
+          History of your completed voice interview sessions and recruiter decisions
+        </p>
       </div>
 
       {loading ? (
         <div className="grid gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-surface rounded-lg border border-line animate-pulse p-6" />
+            <div key={i} className="h-24 bg-surface rounded-lg border border-line animate-pulse" />
           ))}
         </div>
       ) : interviews.length === 0 ? (
@@ -142,51 +130,38 @@ export default function CandidateInterviews() {
       ) : (
         <div className="grid gap-4">
           {interviews.map((result) => {
-            const score = calculateOverallScore(result.conversation_transcript?.feedback);
-            const feedback = result.conversation_transcript?.feedback;
-            const summaryText = getSummaryText(feedback);
-            const isRecommended = feedback?.Recommendation
-              ? !feedback.Recommendation.toLowerCase().includes('not')
-              : null;
+            const { label, icon: StatusIcon, variant } = getStatus(result);
 
             return (
               <div
                 key={result.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedInterview(result)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedInterview(result);
-                  }
-                }}
-                className="bg-surface border border-line rounded-lg shadow-card p-5 sm:p-6 transition-all hover:border-sage-400 hover:shadow-md cursor-pointer group focus:outline-none focus:ring-2 focus:ring-sage-500/40"
+                className="bg-surface border border-line rounded-lg shadow-card p-5 sm:p-6"
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {/* Left — role + meta */}
                   <div className="flex items-start gap-4 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-md bg-sage-100 flex items-center justify-center text-sage-700 flex-shrink-0 mt-0.5">
                       <Video className="w-5 h-5" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-ink text-base truncate group-hover:text-sage-800 transition-colors">
+                      <h3 className="font-semibold text-ink text-base truncate">
                         {result.Interviews?.jobPosition || 'Role Interview'}
                       </h3>
                       <div className="flex flex-wrap items-center gap-2.5 text-xs text-ink-muted mt-1.5">
                         <span className="flex items-center gap-1 font-mono">
                           <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} />
-                          {moment(result.completed_at || result.created_at).format('MMM DD, YYYY')}
+                          {moment(result.completed_at || result.created_at).format('MMM DD, YYYY • h:mm A')}
                         </span>
-                        <span>•</span>
                         {result.Interviews?.duration && (
                           <>
+                            <span>•</span>
                             <span className="flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
                               {result.Interviews.duration}
                             </span>
-                            <span>•</span>
                           </>
                         )}
+                        <span>•</span>
                         <span className="bg-sage-100 text-sage-900 px-2 py-0.5 rounded-full border border-sage-200">
                           Completed
                         </span>
@@ -194,204 +169,33 @@ export default function CandidateInterviews() {
                     </div>
                   </div>
 
-                  {/* Status / Rating */}
-                  <div className="flex sm:flex-col items-center sm:items-end gap-2 flex-shrink-0">
-                    {score !== null && (
-                      <span className="inline-flex items-center gap-1 text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-sage-100 text-sage-900 border border-sage-200 tabular-nums">
-                        <Star className="w-3.5 h-3.5 text-sage-700" strokeWidth={2} />
-                        Score: {score}/10
-                      </span>
-                    )}
-                    {isRecommended !== null && (
-                      <span
-                        className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                          isRecommended
-                            ? 'bg-success-soft text-success border border-success/20'
-                            : 'bg-warning-soft text-warning border border-warning/20'
-                        }`}
-                      >
-                        {isRecommended ? (
-                          <>
-                            <CheckCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
-                            Recommended
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={1.75} />
-                            Under Review
-                          </>
-                        )}
-                      </span>
-                    )}
+                  {/* Right — status badge only */}
+                  <div className="flex-shrink-0 self-start sm:self-auto">
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border ${statusStyles[variant]}`}
+                    >
+                      <StatusIcon className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      {label}
+                    </span>
                   </div>
                 </div>
 
-                {/* AI Summary note if present */}
-                {summaryText && (
-                  <div className="mt-4 pt-4 border-t border-line text-xs text-ink-muted leading-relaxed flex items-end justify-between gap-4">
-                    <p className="line-clamp-2">
-                      <strong className="text-ink font-medium">Evaluation note: </strong>
-                      {summaryText}
-                    </p>
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-sage-700 group-hover:text-sage-900 whitespace-nowrap shrink-0">
-                      View Details
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                    </span>
-                  </div>
-                )}
-                {!summaryText && (
-                  <div className="mt-4 pt-3 border-t border-line flex justify-end">
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-sage-700 group-hover:text-sage-900">
-                      View Details
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                    </span>
-                  </div>
-                )}
+                {/* Context note based on status */}
+                <p className="mt-3 pt-3 border-t border-line text-xs text-ink-muted leading-relaxed">
+                  {variant === 'review' &&
+                    'Your responses are being reviewed by the recruiting team. You will be notified of any update via email.'}
+                  {variant === 'advanced' &&
+                    'Congratulations! The recruiter has advanced your application. Check your email for next steps.'}
+                  {variant === 'rejected' &&
+                    'The recruiter has concluded your application for this role. Check your email for details.'}
+                  {variant === 'followup' &&
+                    'The recruiter has requested a follow-up. Check your email for scheduling details.'}
+                </p>
               </div>
             );
           })}
         </div>
       )}
-
-      {/* Completed Interview Details Modal */}
-      <Dialog open={!!selectedInterview} onOpenChange={(open) => !open && setSelectedInterview(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-ink">
-              {selectedInterview?.Interviews?.jobPosition || 'Interview Assessment Details'}
-            </DialogTitle>
-            <DialogDescription asChild>
-              <div className="mt-3 space-y-5 text-left">
-                {/* Session Metadata Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg bg-surface-alt border border-line">
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-ink-muted">
-                    <span className="flex items-center gap-1 font-mono">
-                      <Calendar className="w-3.5 h-3.5 text-sage-700" strokeWidth={1.75} />
-                      {moment(selectedInterview?.completed_at || selectedInterview?.created_at).format('MMM DD, YYYY • h:mm A')}
-                    </span>
-                    {selectedInterview?.Interviews?.duration && (
-                      <>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-sage-700" strokeWidth={1.75} />
-                          {selectedInterview.Interviews.duration}
-                        </span>
-                      </>
-                    )}
-                    {selectedIsRecommended !== null && (
-                      <span
-                        className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                          selectedIsRecommended
-                            ? 'bg-success-soft text-success border border-success/20'
-                            : 'bg-warning-soft text-warning border border-warning/20'
-                        }`}
-                      >
-                        {selectedIsRecommended ? (
-                          <>
-                            <CheckCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
-                            Recommended
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={1.75} />
-                            Under Review
-                          </>
-                        )}
-                      </span>
-                    )}
-                  </div>
-
-                  {selectedScore !== null && (
-                    <div className="text-right">
-                      <span className="text-[10px] text-ink-muted uppercase tracking-wider block">Overall Score</span>
-                      <span className="text-2xl font-semibold text-sage-800 font-mono tabular-nums leading-none">
-                        {selectedScore}/10
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Evaluated Competencies */}
-                {Object.keys(selectedRating).length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-3">
-                      Evaluated Competencies
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 p-4 rounded-lg bg-surface border border-line">
-                      {Object.entries(selectedRating).map(([skill, val]) => (
-                        <div key={skill} className="space-y-1">
-                          <div className="flex justify-between text-xs font-medium">
-                            <span className="text-ink">{skill.replace(/([A-Z])/g, ' $1').trim()}</span>
-                            <span className="font-mono text-sage-800 tabular-nums">{val}/10</span>
-                          </div>
-                          <Progress value={(typeof val === 'number' ? val : 0) * 10} className="h-2" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* AI Summary & Recommendation */}
-                {(selectedSummary || selectedRecommendationMsg) && (
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2">
-                      AI Evaluation Summary
-                    </h4>
-                    <div className="p-4 rounded-lg bg-sage-50 border border-line text-sm text-ink leading-relaxed space-y-2">
-                      {selectedSummary && <p>{selectedSummary}</p>}
-                      {selectedRecommendationMsg && selectedRecommendationMsg !== selectedSummary && (
-                        <p className="text-xs text-ink-muted pt-2 border-t border-line">
-                          <strong className="text-ink">Note:</strong> {selectedRecommendationMsg}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Interview Dialogue Transcript */}
-                <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2 flex items-center gap-1.5">
-                    <MessageSquare className="w-3.5 h-3.5 text-sage-700" />
-                    Interview Dialogue Transcript {selectedTranscript.length > 0 && `(${selectedTranscript.length} turns)`}
-                  </h4>
-                  <div className="max-h-64 overflow-y-auto space-y-3 p-4 rounded-lg bg-surface border border-line">
-                    {selectedTranscript.length > 0 ? (
-                      selectedTranscript.map((turn, i) => (
-                        <div
-                          key={i}
-                          className={`flex flex-col ${turn.role === 'user' ? 'items-end' : 'items-start'}`}
-                        >
-                          <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono text-ink-muted">
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                turn.role === 'user' ? 'bg-sage-600' : 'bg-ink-muted'
-                              }`}
-                            />
-                            <span>{turn.role === 'user' ? 'You' : 'AI Interviewer'}</span>
-                          </div>
-                          <div
-                            className={`p-3 rounded-lg text-xs leading-relaxed max-w-[85%] ${
-                              turn.role === 'user'
-                                ? 'bg-sage-100 text-ink border border-sage-200'
-                                : 'bg-surface-alt text-ink border border-line'
-                            }`}
-                          >
-                            {turn.content}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-ink-muted italic text-center py-4">
-                        Detailed dialogue transcript was not recorded for this session.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

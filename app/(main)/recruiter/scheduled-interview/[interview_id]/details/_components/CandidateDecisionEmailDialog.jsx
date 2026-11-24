@@ -32,6 +32,8 @@ export default function CandidateDecisionEmailDialog({
   onClose,
   decisionType = 'selected', // 'selected' | 'reevaluate' | 'rejected'
   candidate,
+  jobPosition = '',          // resolved by CandidateFeedbackDialog from interviewDetail
+  interviewId = null,        // used to scope the DB decision update
   initialSubject = '',
   initialMessage = '',
   companyName = 'RecruitAI Hiring Team',
@@ -83,7 +85,8 @@ export default function CandidateDecisionEmailDialog({
       const res = await axios.post('/api/interview/send-decision', {
         candidateEmail: recipientEmail.trim(),
         candidateName: candidate?.fullname || 'Candidate',
-        jobPosition: candidate?.jobPosition || 'Role Specialist',
+        jobPosition: (jobPosition || candidate?.jobPosition || 'Role Specialist').trim(),
+        interviewId: interviewId || undefined,
         decisionType,
         subject: subject.trim(),
         message: message.trim(),

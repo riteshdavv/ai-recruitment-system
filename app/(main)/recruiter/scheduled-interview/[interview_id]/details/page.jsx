@@ -83,7 +83,8 @@ function InterviewDetail() {
       <h2 className="font-bold text-2xl">Interview Details</h2>
       <InterviewDetailContainer interviewDetail={interviewDetail} />
       <CandidateList 
-        candidateList={interviewDetail["interview_results"] || []} 
+        candidateList={interviewDetail["interview_results"] || []}
+        interviewDetail={interviewDetail}
       />
     </div>
   );
