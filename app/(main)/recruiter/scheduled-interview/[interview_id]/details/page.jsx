@@ -39,7 +39,7 @@ function InterviewDetail() {
 
       const { data: resultsData, error: resultsError } = await supabase
         .from("interview_results")
-        .select("email, fullname, conversation_transcript, recommendations, interview_id, completed_at")
+        .select("*")
         .eq("interview_id", interview_id);
 
       if (resultsError) {
@@ -85,6 +85,7 @@ function InterviewDetail() {
       <CandidateList 
         candidateList={interviewDetail["interview_results"] || []}
         interviewDetail={interviewDetail}
+        onRefresh={GetInterviewDetail}
       />
     </div>
   );

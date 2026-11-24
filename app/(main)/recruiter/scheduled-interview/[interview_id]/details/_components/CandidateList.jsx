@@ -4,10 +4,10 @@ import CandidateListFeedbackDialog from "./CandidateFeedbackDialog";
 import exportToCSV from "@/lib/exportToCSV";
 import { supabase } from "@/services/supabaseClient";
 import Image from "next/image";
-import { Download, Users, Star, ArrowUpDown } from "lucide-react";
+import { Download, Users, Star, CheckCircle, XCircle, AlertTriangle, Hourglass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-function CandidateList({ candidateList, interviewDetail }) {
+function CandidateList({ candidateList, interviewDetail, onRefresh }) {
   const [candidatesWithPictures, setCandidatesWithPictures] = useState([]);
 
   const calculateRating = (candidate) => {
@@ -115,6 +115,55 @@ function CandidateList({ candidateList, interviewDetail }) {
                   ? !feedback.Recommendation.toLowerCase().includes('not')
                   : null;
 
+                const decision = candidate?.recruiter_decision;
+                let decisionBadge;
+                if (decision) {
+                  const d = decision.toLowerCase();
+                  if (d === 'advanced' || d === 'selected') {
+                    decisionBadge = (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-success-soft text-success border border-success/20">
+                        <CheckCircle className="w-3 h-3" strokeWidth={1.75} />
+                        Advanced
+                      </span>
+                    );
+                  } else if (d === 'rejected') {
+                    decisionBadge = (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-danger-soft text-danger border border-danger/20">
+                        <XCircle className="w-3 h-3" strokeWidth={1.75} />
+                        Rejected
+                      </span>
+                    );
+                  } else if (d.includes('follow') || d === 'reevaluate') {
+                    decisionBadge = (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-warning-soft text-warning border border-warning/20">
+                        <AlertTriangle className="w-3 h-3" strokeWidth={1.75} />
+                        Follow-up
+                      </span>
+                    );
+                  } else {
+                    decisionBadge = <span className="text-xs text-ink-muted">{decision}</span>;
+                  }
+                } else if (isRecommended !== null) {
+                  decisionBadge = isRecommended ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-success-soft text-success border border-success/20">
+                      <CheckCircle className="w-3 h-3" strokeWidth={1.75} />
+                      Recommended
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-warning-soft text-warning border border-warning/20">
+                      <AlertTriangle className="w-3 h-3" strokeWidth={1.75} />
+                      Under Review
+                    </span>
+                  );
+                } else {
+                  decisionBadge = (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-surface-alt text-ink-muted border border-line">
+                      <Hourglass className="w-3 h-3" strokeWidth={1.75} />
+                      Pending
+                    </span>
+                  );
+                }
+
                 return (
                   <tr key={index} className="hover:bg-sage-50 transition-colors h-14">
                     <td className="py-3 px-5 font-medium">
@@ -157,8 +206,9 @@ function CandidateList({ candidateList, interviewDetail }) {
                       )}
                     </td>
 
-                    <td className="py-3 px-5 text-right">
-                      <CandidateListFeedbackDialog candidate={candidate} interviewDetail={interviewDetail} />
+                    <td className="py-3 px-5 text-right flex items-center justify-end gap-2">
+                      {decisionBadge}
+                      <CandidateListFeedbackDialog candidate={candidate} interviewDetail={interviewDetail} onRefresh={onRefresh} />
                     </td>
                   </tr>
                 );

@@ -37,6 +37,7 @@ export default function CandidateDecisionEmailDialog({
   initialSubject = '',
   initialMessage = '',
   companyName = 'RecruitAI Hiring Team',
+  onRefresh,
 }) {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [subject, setSubject] = useState('');
@@ -96,6 +97,7 @@ export default function CandidateDecisionEmailDialog({
       if (res.data?.success) {
         toast.success(`Successfully dispatched email to ${recipientEmail}!`);
         setSentResult(res.data);
+        if (onRefresh) onRefresh();
       } else {
         toast.error(res.data?.error || 'Failed to dispatch email.');
       }

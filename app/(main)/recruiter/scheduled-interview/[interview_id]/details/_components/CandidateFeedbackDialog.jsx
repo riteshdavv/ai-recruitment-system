@@ -15,7 +15,7 @@ import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail, XCircle, Me
 import Image from "next/image";
 import CandidateDecisionEmailDialog from "./CandidateDecisionEmailDialog";
 
-function CandidateFeedbackDialog({ candidate, interviewDetail }) {
+function CandidateFeedbackDialog({ candidate, interviewDetail, onRefresh }) {
   const [downloadingCV, setDownloadingCV] = useState(false);
   const [cvAvailable, setCvAvailable] = useState(false);
   const [cvFilePath, setCvFilePath] = useState(null);
@@ -730,6 +730,7 @@ Hiring Team`,
       interviewId={interviewDetail?.interview_id || candidate?.interview_id}
       initialSubject={decisionDialog.initialSubject}
       initialMessage={decisionDialog.initialMessage}
+      onRefresh={onRefresh}
     />
   </>
   );
