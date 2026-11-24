@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/services/supabaseClient";
 import { toast } from "sonner";
-import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail, XCircle, MessageSquare, Sparkles, Target, AlertCircle, Lightbulb, Check, RefreshCw, Loader2 } from "lucide-react";
+import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail, XCircle, MessageSquare, Sparkles, Target, AlertCircle, Check, RefreshCw, Loader2 } from "lucide-react";
 import Image from "next/image";
 import CandidateDecisionEmailDialog from "./CandidateDecisionEmailDialog";
 
@@ -707,21 +707,6 @@ Hiring Team`,
                         </div>
                       </div>
 
-                      {/* Actionable tips */}
-                      {atsAnalysis.actionableTips?.length > 0 && (
-                        <div className="p-4 rounded-lg bg-sage-50 border border-line space-y-2">
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-sage-800 flex items-center gap-1.5">
-                            <Lightbulb className="w-3.5 h-3.5 text-sage-700" /> Recruiter Notes
-                          </h4>
-                          <ul className="space-y-1.5">
-                            {atsAnalysis.actionableTips.map((tip, i) => (
-                              <li key={i} className="text-xs text-ink flex items-start gap-2">
-                                <span className="text-sage-700 font-bold shrink-0">{i + 1}.</span>{tip}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
