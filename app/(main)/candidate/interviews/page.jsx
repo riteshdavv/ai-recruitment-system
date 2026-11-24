@@ -24,7 +24,7 @@ export default function CandidateInterviews() {
       setLoading(true);
       const { data: results, error } = await supabase
         .from('interview_results')
-        .select('id, interview_id, fullname, email, recommendations, recruiter_decision, completed_at, created_at')
+        .select('*')
         .eq('email', user.email)
         .order('completed_at', { ascending: false });
 
