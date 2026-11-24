@@ -67,9 +67,19 @@ function StartInterview() {
     const candidateName = interviewInfo?.candidate_name || "Candidate";
 
     try {
+      const jobContext = JSON.stringify({
+        jobPosition: interviewInfo?.jobPosition || "",
+        jobDescription: (interviewInfo?.jobDescription || "").slice(0, 400),
+        questions: (interviewInfo?.questionList?.interviewQuestions || [])
+          .slice(0, 5)
+          .map((q) => q?.question)
+          .filter(Boolean),
+      });
+
       const res = await axios.post("/api/livekit/token", {
         roomName,
         participantName: candidateName,
+        metadata: jobContext,
       });
 
       const { token, wsUrl } = res.data;

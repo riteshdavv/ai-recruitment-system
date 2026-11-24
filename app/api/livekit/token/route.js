@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const { roomName, participantName } = await req.json();
+    const { roomName, participantName, metadata } = await req.json();
 
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -33,6 +33,7 @@ export async function POST(req) {
     const at = new AccessToken(apiKey, apiSecret, {
       identity,
       name: participantName || "Candidate",
+      ...(metadata ? { metadata } : {}),
     });
 
     at.addGrant({

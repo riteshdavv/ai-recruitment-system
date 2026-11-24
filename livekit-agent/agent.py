@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import logging
 from dotenv import load_dotenv
@@ -27,10 +28,34 @@ async def entrypoint(ctx: JobContext):
     candidate_name = participant.name or "Candidate"
     logger.info(f"Candidate joined: {candidate_name} ({participant.identity})")
 
+    # Parse job context passed from the browser via participant metadata
+    job_position = ""
+    job_description = ""
+    question_list = []
+    if participant.metadata:
+        try:
+            meta = json.loads(participant.metadata)
+            job_position = meta.get("jobPosition", "") or ""
+            job_description = meta.get("jobDescription", "") or ""
+            question_list = meta.get("questions", []) or []
+            logger.info(f"Job context received: position='{job_position}', {len(question_list)} questions")
+        except Exception as e:
+            logger.warning(f"Could not parse participant metadata: {e}")
+
+    # Build optional context lines for the prompt (only included if data exists)
+    role_line = f'Role: "{job_position}"' if job_position else ""
+    jd_line = f"Job Context: {job_description}" if job_description else ""
+    questions_line = (
+        f"Baseline questions to cover (adapt depth per answer): {json.dumps(question_list)}"
+        if question_list else ""
+    )
+    context_block = "\n".join(filter(None, [role_line, jd_line, questions_line]))
+
     # Dynamic Adaptive Interviewer instructions
     adaptive_prompt = f"""
 You are an expert Executive AI Technical Interviewer conducting a live adaptive voice screening.
 Candidate Name: {candidate_name}
+{context_block}
 
 YOUR CORE DIRECTIVE - ADAPTIVE DYNAMIC INTERVIEWING:
 Evaluate the candidate's answers in real time and dynamically adjust the difficulty, depth, and direction:
