@@ -206,9 +206,11 @@ function CandidateList({ candidateList, interviewDetail, onRefresh }) {
                       )}
                     </td>
 
-                    <td className="py-3 px-5 text-right flex items-center justify-end gap-2">
-                      {decisionBadge}
-                      <CandidateListFeedbackDialog candidate={candidate} interviewDetail={interviewDetail} onRefresh={onRefresh} />
+                    <td className="py-3 px-5 text-right align-middle">
+                      <div className="inline-flex items-center justify-end gap-2.5 whitespace-nowrap">
+                        {decisionBadge}
+                        <CandidateListFeedbackDialog candidate={candidate} interviewDetail={interviewDetail} onRefresh={onRefresh} />
+                      </div>
                     </td>
                   </tr>
                 );
