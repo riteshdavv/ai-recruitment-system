@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/services/supabaseClient";
 import { toast } from "sonner";
-import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail, XCircle, MessageSquare } from "lucide-react";
+import { Download, Star, CheckCircle, AlertTriangle, FileText, Mail, XCircle, MessageSquare, Sparkles, Target, AlertCircle, Lightbulb, Check, RefreshCw, Loader2 } from "lucide-react";
 import Image from "next/image";
 import CandidateDecisionEmailDialog from "./CandidateDecisionEmailDialog";
 
@@ -20,6 +20,13 @@ function CandidateFeedbackDialog({ candidate }) {
   const [cvAvailable, setCvAvailable] = useState(false);
   const [cvFilePath, setCvFilePath] = useState(null);
   const [candidatePicture, setCandidatePicture] = useState(null);
+
+  // ATS state
+  const [activeTab, setActiveTab] = useState("interview"); // "interview" | "ats"
+  const [atsAnalysis, setAtsAnalysis] = useState(null);
+  const [atsScore, setAtsScore] = useState(null);
+  const [atsTargetRole, setAtsTargetRole] = useState(null);
+  const [atsScoringLoading, setAtsScoringLoading] = useState(false);
 
   const feedback = candidate?.conversation_transcript?.feedback || {};
 
@@ -125,7 +132,7 @@ function CandidateFeedbackDialog({ candidate }) {
     try {
       const { data: userData, error } = await supabase
         .from('users')
-        .select('cv_file_path, picture')
+        .select('cv_file_path, picture, cv_parsed_data, cv_score, cv_target_role')
         .eq('email', candidate.email)
         .single();
 
@@ -139,8 +146,46 @@ function CandidateFeedbackDialog({ candidate }) {
       if (userData?.picture) {
         setCandidatePicture(userData.picture);
       }
+
+      // Load candidate's existing ATS results (if they already scored their CV)
+      if (userData?.cv_parsed_data) {
+        setAtsAnalysis(userData.cv_parsed_data);
+        setAtsScore(userData.cv_score);
+        setAtsTargetRole(userData.cv_target_role);
+      }
     } catch (error) {
       console.error('Error fetching candidate CV:', error);
+    }
+  };
+
+  // Score the candidate's CV against the job's position/description
+  const handleScoreCv = async () => {
+    if (!cvFilePath) {
+      toast.error("No resume on file for this candidate.");
+      return;
+    }
+    setAtsScoringLoading(true);
+    try {
+      const jobRole = candidate?.jobPosition || "Technical Specialist";
+      const jobDescription = candidate?.jobDescription || "";
+
+      const res = await fetch("/api/candidate/parse-cv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cvFilePath, jobRole, jobDescription }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Failed to score resume.");
+
+      setAtsAnalysis(data.analysis);
+      setAtsScore(data.analysis?.score || 0);
+      setAtsTargetRole(jobRole);
+      toast.success(`Resume scored: ${data.analysis?.score ?? 0}/100 match for ${jobRole}`);
+    } catch (err) {
+      toast.error(err.message || "Failed to score resume.");
+    } finally {
+      setAtsScoringLoading(false);
     }
   };
 
@@ -360,144 +405,327 @@ Hiring Team`,
                 </div>
               </div>
 
-              {/* Skills Assessment Grid */}
-              <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-3">
-                  Evaluated Competencies
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 p-4 rounded-lg bg-surface border border-line">
-                  {Object.entries(rating).map(([skill, score]) => (
-                    <div key={skill} className="space-y-1">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-ink">{skill.replace(/([A-Z])/g, " $1").trim()}</span>
-                        <span className="font-mono text-sage-800 tabular-nums">{score}/10</span>
-                      </div>
-                      <Progress value={score * 10} className="h-2" />
+              {/* Tab switcher */}
+              <div className="flex gap-1 p-1 bg-surface-alt border border-line rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("interview")}
+                  className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+                    activeTab === "interview"
+                      ? "bg-sage-700 text-white shadow-sm"
+                      : "text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  Interview Evaluation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("ats")}
+                  className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
+                    activeTab === "ats"
+                      ? "bg-sage-700 text-white shadow-sm"
+                      : "text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  Resume ATS Score
+                </button>
+              </div>
+
+              {/* ── INTERVIEW EVALUATION TAB ── */}
+              {activeTab === "interview" && (
+                <div className="space-y-6">
+                  {/* Skills Assessment Grid */}
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-3">
+                      Evaluated Competencies
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 p-4 rounded-lg bg-surface border border-line">
+                      {Object.entries(rating).map(([skill, score]) => (
+                        <div key={skill} className="space-y-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-ink">{skill.replace(/([A-Z])/g, " $1").trim()}</span>
+                            <span className="font-mono text-sage-800 tabular-nums">{score}/10</span>
+                          </div>
+                          <Progress value={score * 10} className="h-2" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* AI Performance Summary */}
-              <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2">
-                  AI Synthesis & Observations
-                </h4>
-                <div className="p-4 rounded-lg bg-sage-50 border border-line text-sm text-ink leading-relaxed">
-                  {summaryArray.length > 0 ? (
-                    summaryArray.map((line, index) => (
-                      <p key={index} className="mb-2 last:mb-0">
-                        {line}
-                      </p>
-                    ))
-                  ) : (
-                    <p className="text-xs text-ink-muted italic">No text summary generated for this session.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Full Interview Dialogue Transcript */}
-              <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2 flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-sage-700" />
-                  Interview Dialogue Transcript {transcriptList.length > 0 && `(${transcriptList.length} turns)`}
-                </h4>
-                <div className="max-h-72 overflow-y-auto space-y-3 p-4 rounded-lg bg-surface border border-line">
-                  {transcriptList.length > 0 ? (
-                    transcriptList.map((turn, i) => (
-                      <div
-                        key={i}
-                        className={`flex flex-col ${
-                          turn.role === "user" ? "items-end" : "items-start"
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono text-ink-muted">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              turn.role === "user" ? "bg-sage-600" : "bg-ink-muted"
-                            }`}
-                          />
-                          <span>
-                            {turn.role === "user" ? candidate?.fullname || "Candidate" : "AI Interviewer"}
-                          </span>
-                        </div>
-                        <div
-                          className={`p-3 rounded-lg text-xs leading-relaxed max-w-[85%] ${
-                            turn.role === "user"
-                              ? "bg-sage-100 text-ink border border-sage-200"
-                              : "bg-surface-alt text-ink border border-line"
-                          }`}
-                        >
-                          {turn.content}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-ink-muted italic text-center py-4">
-                      Detailed dialogue transcript was not recorded for this legacy session.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Recommendation Block & Actions */}
-              <div
-                className={`p-4 sm:p-5 rounded-lg border ${
-                  recommendationStatus === "recommended"
-                    ? "bg-success-soft border-success/30 text-ink"
-                    : recommendationStatus === "not_recommended"
-                    ? "bg-danger-soft border-danger/30 text-ink"
-                    : "bg-warning-soft border-warning/30 text-ink"
-                }`}
-              >
-                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      {recommendationStatus === "recommended" ? (
-                        <CheckCircle className="w-5 h-5 text-success shrink-0" strokeWidth={1.75} />
-                      ) : recommendationStatus === "not_recommended" ? (
-                        <XCircle className="w-5 h-5 text-danger shrink-0" strokeWidth={1.75} />
+                  {/* AI Performance Summary */}
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2">
+                      AI Synthesis & Observations
+                    </h4>
+                    <div className="p-4 rounded-lg bg-sage-50 border border-line text-sm text-ink leading-relaxed">
+                      {summaryArray.length > 0 ? (
+                        summaryArray.map((line, index) => (
+                          <p key={index} className="mb-2 last:mb-0">
+                            {line}
+                          </p>
+                        ))
                       ) : (
-                        <AlertTriangle className="w-5 h-5 text-warning shrink-0" strokeWidth={1.75} />
+                        <p className="text-xs text-ink-muted italic">No text summary generated for this session.</p>
                       )}
-                      <h4 className="font-semibold text-base text-ink">
-                        {displayRecommendationTitle}
-                      </h4>
                     </div>
-                    <p className="text-xs sm:text-sm text-ink-muted mt-2 leading-relaxed">
-                      {finalRecommendationMessage}
-                    </p>
                   </div>
 
-                  {/* Email action trigger buttons */}
-                  <div className="flex flex-col gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-line">
-                    <Button
-                      onClick={() => handleOpenDecisionDialog("selected")}
-                      size="sm"
-                      className="h-8 text-xs font-medium bg-sage-700 hover:bg-sage-800 text-white justify-start"
-                    >
-                      <Mail className="w-3.5 h-3.5 mr-1.5" />
-                      Advance Candidate
-                    </Button>
-                    <Button
-                      onClick={() => handleOpenDecisionDialog("reevaluate")}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs font-medium justify-start"
-                    >
-                      Request Follow-up
-                    </Button>
-                    <Button
-                      onClick={() => handleOpenDecisionDialog("rejected")}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs font-medium text-danger border-line hover:bg-danger-soft justify-start"
-                    >
-                      Send Rejection
-                    </Button>
+                  {/* Full Interview Dialogue Transcript */}
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted mb-2 flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-sage-700" />
+                      Interview Dialogue Transcript {transcriptList.length > 0 && `(${transcriptList.length} turns)`}
+                    </h4>
+                    <div className="max-h-72 overflow-y-auto space-y-3 p-4 rounded-lg bg-surface border border-line">
+                      {transcriptList.length > 0 ? (
+                        transcriptList.map((turn, i) => (
+                          <div
+                            key={i}
+                            className={`flex flex-col ${
+                              turn.role === "user" ? "items-end" : "items-start"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono text-ink-muted">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  turn.role === "user" ? "bg-sage-600" : "bg-ink-muted"
+                                }`}
+                              />
+                              <span>
+                                {turn.role === "user" ? candidate?.fullname || "Candidate" : "AI Interviewer"}
+                              </span>
+                            </div>
+                            <div
+                              className={`p-3 rounded-lg text-xs leading-relaxed max-w-[85%] ${
+                                turn.role === "user"
+                                  ? "bg-sage-100 text-ink border border-sage-200"
+                                  : "bg-surface-alt text-ink border border-line"
+                              }`}
+                            >
+                              {turn.content}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-ink-muted italic text-center py-4">
+                          Detailed dialogue transcript was not recorded for this legacy session.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Recommendation Block & Actions */}
+                  <div
+                    className={`p-4 sm:p-5 rounded-lg border ${
+                      recommendationStatus === "recommended"
+                        ? "bg-success-soft border-success/30 text-ink"
+                        : recommendationStatus === "not_recommended"
+                        ? "bg-danger-soft border-danger/30 text-ink"
+                        : "bg-warning-soft border-warning/30 text-ink"
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {recommendationStatus === "recommended" ? (
+                            <CheckCircle className="w-5 h-5 text-success shrink-0" strokeWidth={1.75} />
+                          ) : recommendationStatus === "not_recommended" ? (
+                            <XCircle className="w-5 h-5 text-danger shrink-0" strokeWidth={1.75} />
+                          ) : (
+                            <AlertTriangle className="w-5 h-5 text-warning shrink-0" strokeWidth={1.75} />
+                          )}
+                          <h4 className="font-semibold text-base text-ink">
+                            {displayRecommendationTitle}
+                          </h4>
+                        </div>
+                        <p className="text-xs sm:text-sm text-ink-muted mt-2 leading-relaxed">
+                          {finalRecommendationMessage}
+                        </p>
+                      </div>
+
+                      {/* Email action trigger buttons */}
+                      <div className="flex flex-col gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-line">
+                        <Button
+                          onClick={() => handleOpenDecisionDialog("selected")}
+                          size="sm"
+                          className="h-8 text-xs font-medium bg-sage-700 hover:bg-sage-800 text-white justify-start"
+                        >
+                          <Mail className="w-3.5 h-3.5 mr-1.5" />
+                          Advance Candidate
+                        </Button>
+                        <Button
+                          onClick={() => handleOpenDecisionDialog("reevaluate")}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-medium justify-start"
+                        >
+                          Request Follow-up
+                        </Button>
+                        <Button
+                          onClick={() => handleOpenDecisionDialog("rejected")}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-medium text-danger border-line hover:bg-danger-soft justify-start"
+                        >
+                          Send Rejection
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* ── RESUME ATS SCORE TAB ── */}
+              {activeTab === "ats" && (
+                <div className="space-y-5">
+                  {/* Score against this role CTA */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-surface-alt border border-line">
+                    <div>
+                      <p className="text-xs font-semibold text-ink">
+                        Score against: <span className="text-sage-800">{candidate?.jobPosition || "This role"}</span>
+                      </p>
+                      <p className="text-[11px] text-ink-muted mt-0.5">
+                        {atsAnalysis
+                          ? "Previously scored — click Rescore to refresh against this role's JD."
+                          : cvAvailable
+                          ? "Resume on file. Click to run ATS evaluation against this job."
+                          : "No resume uploaded by this candidate yet."}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleScoreCv}
+                      disabled={atsScoringLoading || !cvAvailable}
+                      size="sm"
+                      className="h-9 text-xs font-medium bg-sage-700 hover:bg-sage-800 text-white shrink-0 flex items-center gap-1.5"
+                    >
+                      {atsScoringLoading ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scoring...</>
+                      ) : (
+                        <><RefreshCw className="w-3.5 h-3.5" /> {atsAnalysis ? "Rescore" : "Score Resume"}</>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Loading state */}
+                  {atsScoringLoading && (
+                    <div className="py-10 flex flex-col items-center justify-center text-center space-y-4">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-sage-100 flex items-center justify-center text-sage-700">
+                          <Sparkles className="w-5 h-5 animate-pulse" />
+                        </div>
+                        <div className="absolute -inset-1 rounded-full border border-sage-400 animate-ping opacity-25" />
+                      </div>
+                      <p className="text-xs text-ink-muted">Analyzing resume against job requirements...</p>
+                    </div>
+                  )}
+
+                  {/* No resume state */}
+                  {!cvAvailable && !atsScoringLoading && (
+                    <div className="py-10 text-center">
+                      <FileText className="w-8 h-8 text-ink-subtle mx-auto mb-3" />
+                      <p className="text-sm font-medium text-ink">No resume on file</p>
+                      <p className="text-xs text-ink-muted mt-1">This candidate hasn't uploaded a CV yet.</p>
+                    </div>
+                  )}
+
+                  {/* ATS Results */}
+                  {atsAnalysis && !atsScoringLoading && (
+                    <div className="space-y-4">
+                      {/* Score hero */}
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-sage-50 to-surface border border-line">
+                        <div className="space-y-1">
+                          <span className="text-[11px] uppercase tracking-wider font-semibold text-sage-800 block">
+                            ATS Match Analysis
+                          </span>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                            (atsScore || 0) >= 80 ? "text-success border-success/30 bg-success-soft" :
+                            (atsScore || 0) >= 60 ? "text-sage-700 border-sage-300 bg-sage-50" :
+                            (atsScore || 0) >= 40 ? "text-amber-700 border-amber-300 bg-amber-50" :
+                            "text-danger border-danger/30 bg-danger-soft"
+                          }`}>
+                            {atsAnalysis.scoreBand || "Evaluated"}
+                          </span>
+                          <p className="text-xs text-ink-muted leading-relaxed max-w-sm">
+                            {atsAnalysis.matchHeadline || atsAnalysis.summary}
+                          </p>
+                        </div>
+                        <div className="text-center bg-surface p-3 rounded-xl border border-line shadow-sm shrink-0">
+                          <div className="text-3xl font-extrabold text-ink font-mono">
+                            {atsScore ?? 0}<span className="text-sm font-normal text-ink-muted">/100</span>
+                          </div>
+                          <div className="text-[10px] uppercase font-semibold text-ink-muted tracking-wider">Role Match</div>
+                        </div>
+                      </div>
+
+                      {/* Top Skills */}
+                      {atsAnalysis.topSkills?.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Extracted Skills</h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {atsAnalysis.topSkills.map((skill, idx) => (
+                              <span key={idx} className="text-xs px-2.5 py-1 rounded-md bg-sage-100 text-sage-800 font-medium border border-sage-200">
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Strengths & Gaps */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-4 rounded-lg bg-surface border border-line space-y-2">
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-success flex items-center gap-1.5">
+                            <Check className="w-3.5 h-3.5" /> Role Strengths
+                          </h4>
+                          <ul className="space-y-1.5">
+                            {atsAnalysis.matchingStrengths?.length > 0 ? (
+                              atsAnalysis.matchingStrengths.map((s, i) => (
+                                <li key={i} className="text-xs text-ink flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 shrink-0" />{s}
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-xs text-ink-muted">No strengths highlighted.</li>
+                            )}
+                          </ul>
+                        </div>
+                        <div className="p-4 rounded-lg bg-surface border border-line space-y-2">
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5" /> Skill Gaps
+                          </h4>
+                          <ul className="space-y-1.5">
+                            {atsAnalysis.skillGaps?.length > 0 ? (
+                              atsAnalysis.skillGaps.map((g, i) => (
+                                <li key={i} className="text-xs text-ink flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />{g}
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-xs text-ink-muted">No major gaps identified.</li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Actionable tips */}
+                      {atsAnalysis.actionableTips?.length > 0 && (
+                        <div className="p-4 rounded-lg bg-sage-50 border border-line space-y-2">
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-sage-800 flex items-center gap-1.5">
+                            <Lightbulb className="w-3.5 h-3.5 text-sage-700" /> Recruiter Notes
+                          </h4>
+                          <ul className="space-y-1.5">
+                            {atsAnalysis.actionableTips.map((tip, i) => (
+                              <li key={i} className="text-xs text-ink flex items-start gap-2">
+                                <span className="text-sage-700 font-bold shrink-0">{i + 1}.</span>{tip}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </DialogDescription>
         </DialogHeader>
