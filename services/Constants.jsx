@@ -105,36 +105,56 @@ format: interviewQuestions=[
 
 🎯 The goal is to create a structured, relevant, and time-optimized interview plan for a {{jobPosition}} role.`
 
-export const FEEDBACK_PROMPT = `You are an expert technical hiring manager evaluating an interview conversation.
-Analyze this interview conversation between the AI Interviewer (assistant) and the Candidate (user):
+export const FEEDBACK_PROMPT = `You are a senior technical hiring manager performing a rigorous, evidence-based evaluation of a voice interview.
+
+Interview transcript between AI Interviewer (role: "assistant") and the Candidate (role: "user"):
 {{conversation}}
 
-CRITICAL EVALUATION & RATING CALIBRATION RULES (MANDATORY CONSISTENCY):
-1. IF THE CANDIDATE GAVE MINIMAL, BLANK, OR ONLY GREETING RESPONSES (< 2 substantial answers):
-   - All competency ratings MUST be between 0 and 3 out of 10.
-   - "Recommendation" MUST be "Not Recommended".
-   - "RecommendationMessage" MUST state: "Candidate provided minimal or insufficient responses to evaluate competencies."
-   - "summary" MUST state in 3-4 sentences that the interaction lacked substantive technical depth.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — READ THE TRANSCRIPT CAREFULLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Count the candidate's substantive responses (entries where role === "user" with more than a greeting or filler).
+Assess the CONTENT of each answer: technical depth, accuracy, examples given, communication clarity, and relevance.
 
-2. IF THE CANDIDATE DEMONSTRATED STRONG COMPETENCE & ANSWERED QUESTIONS WELL:
-   - Competency ratings MUST be between 7 and 10 out of 10.
-   - "Recommendation" MUST be "Recommended".
-   - "RecommendationMessage" MUST highlight their demonstrated technical strengths and suitability.
-   - "summary" MUST detail in 3-4 sentences their technical competence, architecture knowledge, and communication.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — DETERMINE PERFORMANCE TIER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Based solely on the actual quality of the candidate's answers:
 
-3. IF THE CANDIDATE HAD MIXED OR BORDERLINE PERFORMANCE:
-   - Competency ratings MUST be between 4 and 6 out of 10.
-   - "Recommendation" MUST be "Follow-up Required".
-   - "RecommendationMessage" MUST state specific areas needing further assessment.
-   - "summary" MUST summarize demonstrated strengths vs areas requiring follow-up.
+TIER A — STRONG CANDIDATE (most answers are correct, detailed, and technically sound):
+- TechnicalSkills: 7–10 | Communication: 7–10 | ProblemSolving: 7–10 | Experience: 7–10 | Behavioral: 7–10 | Analysis: 7–10
+- Recommendation: "Recommended"
 
-MATHEMATICAL CONSISTENCY RULE:
-The numerical scores and hiring verdict MUST be 100% aligned:
-- Average score >= 7.0 => Recommendation MUST be "Recommended"
-- Average score <= 4.0 => Recommendation MUST be "Not Recommended"
-- Average score 4.1 to 6.9 => Recommendation MUST be "Follow-up Required"
+TIER B — MIXED / BORDERLINE (some good answers, some weak or incomplete):
+- Ratings vary per competency between 4–7 reflecting actual gaps
+- Recommendation: "Follow-up Required"
 
-Respond strictly with a valid JSON object matching this schema (replace placeholders with actual evaluated values):
+TIER C — WEAK / MINIMAL ENGAGEMENT (candidate mostly silent, gave only 1-2 short replies, or showed no technical knowledge):
+- All ratings: 0–3
+- Recommendation: "Not Recommended"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — SCORE EACH COMPETENCY INDEPENDENTLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Rate each dimension 0–10 based on EVIDENCE in the transcript, not on assumptions:
+- TechnicalSkills: Accuracy and depth of technical answers.
+- Communication: Clarity, structure, and conciseness of responses.
+- ProblemSolving: Logical reasoning, handling of complex questions, edge-case awareness.
+- Experience: Concrete examples, real-world project experience mentioned.
+- Behavioral: Professionalism, composure, follow-through under pressure.
+- Analysis: Ability to dissect problems, compare trade-offs, reason from first principles.
+
+A candidate who gives thorough, correct, well-structured answers MUST receive 7–10 in relevant dimensions.
+Do NOT apply a blanket low score simply because the interview was short — score what was actually said.
+
+MATHEMATICAL CONSISTENCY (REQUIRED):
+- Average score >= 7.0 → Recommendation MUST be "Recommended"
+- Average score 4.1–6.9 → Recommendation MUST be "Follow-up Required"
+- Average score <= 4.0 → Recommendation MUST be "Not Recommended"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT — Respond ONLY with this JSON (no extra text):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {
   "feedback": {
     "rating": {
@@ -145,10 +165,10 @@ Respond strictly with a valid JSON object matching this schema (replace placehol
       "Behavioral": 0,
       "Analysis": 0
     },
-    "summary": "3 to 4 sentences analyzing candidate responses, technical depth, and overall performance.",
-    "summery": "Same 3 to 4 sentences for backward compatibility.",
+    "summary": "3–4 sentences: what the candidate demonstrated, specific strengths or gaps, and overall impression.",
+    "summery": "Same 3–4 sentences (backward compatibility field).",
     "Recommendation": "Recommended | Not Recommended | Follow-up Required",
-    "RecommendationMessage": "One concise line summarizing hiring verdict."
+    "RecommendationMessage": "One concise hiring verdict sentence citing the strongest evidence from the transcript."
   }
 }
 `;

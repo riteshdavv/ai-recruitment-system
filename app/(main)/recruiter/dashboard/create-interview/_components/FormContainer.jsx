@@ -62,6 +62,7 @@ function FormContainer({ onHandleInputChange, GoToNext }) {
             <SelectValue placeholder="Select target duration" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="3 Min">3 Minutes (Quick Demo)</SelectItem>
             <SelectItem value="5 Min">5 Minutes (Quick Screening)</SelectItem>
             <SelectItem value="15 Min">15 Minutes (Standard Screening)</SelectItem>
             <SelectItem value="30 Min">30 Minutes (Comprehensive)</SelectItem>

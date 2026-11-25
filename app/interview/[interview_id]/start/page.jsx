@@ -30,6 +30,25 @@ function StartInterview() {
   // LiveKit room ref
   const roomRef = useRef(null);
 
+  // Duration limit — parse "15 Min", "30 Min" etc into seconds (0 = unlimited)
+  const durationSeconds = (() => {
+    const raw = interviewInfo?.duration || "";
+    const match = raw.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) * 60 : 0;
+  })();
+
+  // Auto-end interview when duration expires
+  useEffect(() => {
+    if (!start || isGeneratingFeedback || durationSeconds <= 0) return;
+    const timeout = setTimeout(() => {
+      toast.info(`Interview time limit reached (${interviewInfo?.duration}). Finalizing evaluation...`);
+      setIsGeneratingFeedback(true);
+      stopInterview();
+    }, durationSeconds * 1000);
+    return () => clearTimeout(timeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, durationSeconds]);
+
   // Browser-native speech recognition & synthesis refs
   const recognitionRef = useRef(null);
   const isListeningRef = useRef(false);
@@ -577,7 +596,7 @@ Do NOT follow a static, rigid script. You must evaluate the candidate's response
 
           <div className="flex items-center gap-2 bg-surface px-3.5 py-1.5 rounded-full border border-line shadow-xs font-mono text-sm font-medium text-ink tabular-nums">
             <Timer className="w-4 h-4 text-sage-700" strokeWidth={1.75} />
-            <TimmerComponent start={start} />
+            <TimmerComponent start={start} durationSeconds={durationSeconds} />
           </div>
         </header>
 

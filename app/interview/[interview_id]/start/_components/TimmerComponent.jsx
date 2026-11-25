@@ -8,25 +8,36 @@ const formatTime = (totalSeconds) => {
     return `${hours}:${minutes}:${seconds}`;
 };
 
-const TimmerComponent = ({ start }) => {
-    const [time, setTime] = useState(0);
+// durationSeconds: total limit in seconds (0 = unlimited, shows elapsed)
+// When a limit is set, shows countdown and turns red in the last 60 seconds.
+const TimmerComponent = ({ start, durationSeconds = 0 }) => {
+    const [elapsed, setElapsed] = useState(0);
     const intervalRef = useRef(null);
 
     useEffect(() => {
         if (start) {
             intervalRef.current = setInterval(() => {
-                setTime(prev => prev + 1);
+                setElapsed(prev => prev + 1);
             }, 1000);
         } else {
             clearInterval(intervalRef.current);
         }
-
-        return () => clearInterval(intervalRef.current); // cleanup on unmount or start change
+        return () => clearInterval(intervalRef.current);
     }, [start]);
+
+    if (durationSeconds > 0) {
+        const remaining = Math.max(0, durationSeconds - elapsed);
+        const isLow = remaining <= 60;
+        return (
+            <div className={isLow ? 'text-danger' : ''}>
+                <h2>{formatTime(remaining)}</h2>
+            </div>
+        );
+    }
 
     return (
         <div>
-            <h2>{formatTime(time)}</h2>
+            <h2>{formatTime(elapsed)}</h2>
         </div>
     );
 };
